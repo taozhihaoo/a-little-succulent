@@ -15,5 +15,8 @@ const bridge: DesktopBridge = {
   dragEnd() {
     ipcRenderer.send(IpcChannels.DragEnd)
   },
+  setBounds(width: number, height: number) {
+    ipcRenderer.send(IpcChannels.SetBounds, width, height)
+  },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)

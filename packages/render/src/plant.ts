@@ -17,7 +17,7 @@ export class PlantRenderer {
   private geometryKey = ''
   private lastOrganCount = -1
 
-  constructor(scene: THREE.Scene) {
+  constructor(parent: THREE.Object3D) {
     this.material = new THREE.MeshPhysicalMaterial({
       color: 0x7da87b,
       roughness: 0.6,
@@ -26,9 +26,20 @@ export class PlantRenderer {
       sheenColor: new THREE.Color(0xffffff),
     })
 
-    scene.add(this.group)
+    parent.add(this.group)
     this.group.add(this.leafGroup)
     this.buildPot()
+  }
+
+  /** 释放本实例的全部 GPU 资源（联系表等批量场景使用） */
+  dispose(): void {
+    this.group.removeFromParent()
+    this.group.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (mesh.isMesh) mesh.geometry.dispose()
+    })
+    this.material.dispose()
+    this.leafGeometry?.dispose()
   }
 
   /** 花盆（lathe 轮廓）+ 土面 + 短茎桩（04 §4.3）；正式盆型后续扩充 */

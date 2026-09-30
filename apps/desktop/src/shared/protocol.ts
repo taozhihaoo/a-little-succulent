@@ -7,6 +7,8 @@ export const IpcChannels = {
   DragStart: 'desktop:drag-start',
   DragMove: 'desktop:drag-move',
   DragEnd: 'desktop:drag-end',
+  /** renderer → main：调整窗口尺寸（联系表等 dev 工具需要大视口） */
+  SetBounds: 'desktop:set-bounds',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -18,4 +20,5 @@ export interface DesktopBridge {
   dragStart(): void
   dragMove(): void
   dragEnd(): void
+  setBounds(width: number, height: number): void
 }

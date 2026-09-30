@@ -99,6 +99,12 @@ ipcMain.on(IpcChannels.DragEnd, () => {
   dragOffset = undefined
 })
 
+ipcMain.on(IpcChannels.SetBounds, (_event, w: unknown, h: unknown) => {
+  if (typeof w === 'number' && typeof h === 'number' && win) {
+    win.setBounds({ width: Math.round(w), height: Math.round(h) })
+  }
+})
+
 void app.whenReady().then(() => {
   app.on('second-instance', () => win?.show())
   win = createWindow()

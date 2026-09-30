@@ -64,6 +64,20 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
+// dev：Shift+C 开 100 株联系表（03 §7），Esc 退出；Shift+S 在表内导出 PNG。仅 DEV 构建。
+let exitContactSheet: (() => void) | null = null
+window.addEventListener('keydown', (e) => {
+  if (!import.meta.env.DEV) return
+  if (e.code === 'KeyC' && e.shiftKey && !exitContactSheet) {
+    void import('../dev/contact-sheet').then((m) => {
+      exitContactSheet = m.mountContactSheet(root, plantRenderer, bridge)
+    })
+  } else if (e.code === 'Escape' && exitContactSheet) {
+    exitContactSheet()
+    exitContactSheet = null
+  }
+})
+
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
 const hitTest = makeHitTester(root)
 
