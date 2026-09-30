@@ -10,6 +10,8 @@ export interface SnapshotMaterial {
   farina: number
   gloss: number
   edgeContrast: number
+  /** 0~1 全株应激色强度（外圈老叶权重高；M2 渐变的总量） */
+  stressAmount: number
 }
 
 export interface SnapshotShape {
@@ -52,6 +54,16 @@ export function derivePhenotype(
 ): PhenotypeSnapshot {
   const species = getSpecies(plant.speciesId)
   const g = (name: string): number => plant.genome.values[name] ?? 0.5
+  // 全株应激色强度：外圈（老）叶权重更高（04 §7：外圈先着色）
+  const alive = plant.leaves.filter((l) => l.droppedSimTime === undefined)
+  let weighted = 0
+  let weightSum = 0
+  for (let i = 0; i < alive.length; i++) {
+    const w = 0.5 + (i / Math.max(1, alive.length - 1)) * 0.5 // 老叶（数组前部）权重高
+    weighted += alive[i]!.colorState * w
+    weightSum += w
+  }
+  const stressAmount = weightSum > 0 ? Math.min(1, weighted / weightSum) : 0
   return {
     plantId: plant.id,
     simTime,
@@ -64,6 +76,7 @@ export function derivePhenotype(
       farina: g('farina'),
       gloss: g('gloss'),
       edgeContrast: g('edgeContrast'),
+      stressAmount,
     },
     shape: { tipSharpness: g('tipSharpness'), openness: g('openness'), curvature: g('curvature') },
     organs: species.morphology(plant),

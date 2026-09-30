@@ -204,6 +204,8 @@ export const ECHEVERIA: SpeciesDef = {
         length,
         width,
         thickness: width * (0.25 + 0.4 * tGene),
+        colorState: leaf.colorState,
+        turgor: leaf.turgor,
       })
     }
     return poses

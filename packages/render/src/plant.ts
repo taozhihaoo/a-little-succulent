@@ -5,6 +5,7 @@
 import * as THREE from 'three'
 import type { PhenotypeSnapshot } from '@succulent/sim'
 import { buildLeafGeometry } from './leaf'
+import { applyLeafShader, type LeafMaterialUniforms } from './leaf-material'
 
 const SOIL_Y = 4
 
@@ -16,6 +17,7 @@ export class PlantRenderer {
   private leafGeometry: THREE.BufferGeometry | undefined
   private geometryKey = ''
   private lastOrganCount = -1
+  private readonly leafUniforms: LeafMaterialUniforms
 
   constructor(parent: THREE.Object3D) {
     this.material = new THREE.MeshPhysicalMaterial({
@@ -26,6 +28,7 @@ export class PlantRenderer {
       sheenColor: new THREE.Color(0xffffff),
     })
 
+    this.leafUniforms = applyLeafShader(this.material)
     parent.add(this.group)
     this.group.add(this.leafGroup)
     this.buildPot()
@@ -78,9 +81,16 @@ export class PlantRenderer {
   update(snapshot: PhenotypeSnapshot): void {
     const { material, shape } = snapshot
 
-    this.material.color.setRGB(material.baseColor[0]!, material.baseColor[1]!, material.baseColor[2]!)
+    const fr = material.farina * 0.55
+    const mixTo = (a: number, b: number): number => a + (b - a) * fr
+    this.material.color.setRGB(mixTo(material.baseColor[0]!, 0.92), mixTo(material.baseColor[1]!, 0.94), mixTo(material.baseColor[2]!, 0.9))
     this.material.roughness = Math.min(1, 0.78 - 0.3 * material.gloss + (1 - snapshot.water) * 0.15)
-    this.material.sheen = 0.15 + 0.6 * material.farina
+    this.material.sheen = 0.15 + 0.5 * material.farina
+    this.material.clearcoat = 0.15 + 0.35 * material.gloss
+    this.material.clearcoatRoughness = 0.35 + 0.3 * (1 - snapshot.water)
+    this.leafUniforms.uStressColor.value.setRGB(material.stressColor[0]!, material.stressColor[1]!, material.stressColor[2]!)
+    this.leafUniforms.uStressAmount.value = material.stressAmount
+    this.leafUniforms.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
 
     const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`
     if (this.leafGeometry === undefined || key !== this.geometryKey) {

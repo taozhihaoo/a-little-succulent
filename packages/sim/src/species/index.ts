@@ -22,6 +22,10 @@ export interface OrganPose {
   length: number
   width: number
   thickness: number
+  /** 0~1 应激色量（M2：渲染侧叶尖渐变强度） */
+  colorState: number
+  /** 0~1 饱满度（M2：影响透光/光泽） */
+  turgor: number
 }
 
 export interface SpeciesDef {

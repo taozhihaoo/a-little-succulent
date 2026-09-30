@@ -4,6 +4,7 @@
  * M1：占位球退休，场景为 mm 尺度的真实莲座（PlantRenderer）。
  */
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 export type RenderPhase = 'DeepIdle' | 'Ambient' | 'Active'
 
@@ -19,24 +20,31 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
   renderer.setClearColor(0x000000, 0)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.toneMapping = THREE.ACESFilmicToneMapping // M2：脱离塑料感的第一杠杆
+  renderer.toneMappingExposure = 1.05
   renderer.setSize(container.clientWidth, container.clientHeight, false)
   renderer.domElement.style.width = '100%'
   renderer.domElement.style.height = '100%'
   container.appendChild(renderer.domElement)
 
   const scene = new THREE.Scene()
+  // 程序化环境（无外部资产）：物理材质的真实反射/环境项
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  scene.environmentIntensity = 0.45
+  pmrem.dispose()
   // far 6000：联系表相机在 ~2400mm 外俯拍 10×10 网格（远平面 2000 会整体裁剪，2026-10-01）
   const camera = new THREE.PerspectiveCamera(40, 1, 1, 6000)
   camera.position.set(0, 70, 175)
   camera.lookAt(0, 22, 0)
 
-  const key = new THREE.DirectionalLight(0xffffff, 2.4)
+  const key = new THREE.DirectionalLight(0xfff4e6, 1.5) // M2：2.4→1.5（过曝是发白元凶）
   key.position.set(120, 180, 150)
   scene.add(key)
-  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.6)
+  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.5)
   fill.position.set(-100, 60, -80)
   scene.add(fill)
-  scene.add(new THREE.AmbientLight(0xffffff, 0.65))
+  scene.add(new THREE.AmbientLight(0xffffff, 0.3))
 
   const onResize = () => {
     const w = container.clientWidth
@@ -216,4 +224,5 @@ export function makeHitTester(root: SceneRoot): HitTester {
 }
 
 export { buildLeafGeometry, type LeafShapeParams } from './leaf'
+export { createLeafMaterial, type LeafMaterialUniforms } from './leaf-material'
 export { PlantRenderer } from './plant'
