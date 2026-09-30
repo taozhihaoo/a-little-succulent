@@ -25,7 +25,8 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   container.appendChild(renderer.domElement)
 
   const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(40, 1, 1, 2000)
+  // far 6000：联系表相机在 ~2400mm 外俯拍 10×10 网格（远平面 2000 会整体裁剪，2026-10-01）
+  const camera = new THREE.PerspectiveCamera(40, 1, 1, 6000)
   camera.position.set(0, 70, 175)
   camera.lookAt(0, 22, 0)
 
