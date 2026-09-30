@@ -27,7 +27,9 @@ export function buildLeafGeometry(params: LeafShapeParams): THREE.BufferGeometry
   for (let j = 0; j <= LENGTH_SEGMENTS; j++) {
     const v = j / LENGTH_SEGMENTS
     // 宽度轮廓：基部收窄 → 前 1/3 处最宽 → 收尖
-    const taper = Math.pow(Math.sin(Math.PI * (0.12 + 0.88 * v)), 0.55 + 0.75 * (1 - tipSharpness))
+    // 钳制到 >= 0：v=1 时 0.12+0.88v 会浮点超出 1，sin 为负，负数幂 = NaN（整叶被剔除）
+    const s = Math.max(0, Math.sin(Math.PI * (0.12 + 0.88 * v)))
+    const taper = Math.pow(s, 0.55 + 0.75 * (1 - tipSharpness))
     const bend = curvature * 0.35 * v * v
     for (let i = 0; i <= WIDTH_SEGMENTS; i++) {
       const u = (i / WIDTH_SEGMENTS) * 2 - 1

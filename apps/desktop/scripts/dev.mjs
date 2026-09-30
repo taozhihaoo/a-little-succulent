@@ -16,7 +16,7 @@ await buildMain()
 console.info(`[dev] renderer: ${url}`)
 console.info('[dev] launching electron…')
 
-const electron = spawn(electronPath, [appRoot], {
+const electron = spawn(electronPath, [appRoot, '--enable-logging'], {
   stdio: 'inherit',
   env: { ...process.env, ELECTRON_RENDERER_URL: url },
 })
