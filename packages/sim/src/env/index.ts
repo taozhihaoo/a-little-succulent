@@ -14,12 +14,42 @@ export interface EnvSample {
   seasonPhase: number
 }
 
+const DAY_MS = 86_400_000
+const YEAR_MS = 365.25 * DAY_MS
+
+const PLACEMENT_LIGHT: Record<EnvConfig['placement'], number> = {
+  windowsill: 0.95,
+  'table-center': 0.6,
+  lamp: 0.5,
+  shade: 0.3,
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v
+}
+
 /**
- * TODO(M3)：按 04 规格实现光照日曲线与季节曲线。
- * 日历换算必须用纯算术（epoch ms → 当地时刻），禁止 Date 类型（ARCHITECTURE 不变量 3）。
+ * S2 占位实现：确定性纯算术曲线（白昼钟形 × 摆放位系数 + 年相位）。
+ * TODO(M3)：按真实光照日曲线 / 季节系数替换（02 §2.2 + 04）。
+ * 日历换算全部为纯算术，禁止 Date 类型（ARCHITECTURE 不变量 3）。
  */
 export function sampleEnv(simTime: number, env: EnvConfig): EnvSample {
-  void simTime
-  void env
-  throw new Error('sampleEnv: M3 落地（02 §2.2 + 04 光照/季节曲线）')
+  const localMs = simTime + env.utcOffsetMinutes * 60_000
+  const dayPhase = ((localMs % DAY_MS) + DAY_MS) % DAY_MS / DAY_MS
+
+  // 白昼 06:00–18:00 的钟形光照
+  const daylight =
+    dayPhase >= 0.25 && dayPhase <= 0.75 ? Math.sin((Math.PI * (dayPhase - 0.25)) / 0.5) : 0
+  const light = clamp01(daylight * PLACEMENT_LIGHT[env.placement])
+
+  const yearPhase = (((simTime % YEAR_MS) + YEAR_MS) % YEAR_MS) / YEAR_MS
+  const seasonPhase = env.hemisphere === 'north' ? yearPhase : (yearPhase + 0.5) % 1
+
+  return {
+    light,
+    temperature: 20 + 6 * light,
+    humidity: 0.45,
+    dayPhase,
+    seasonPhase,
+  }
 }
