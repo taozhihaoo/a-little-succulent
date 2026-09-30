@@ -2,6 +2,7 @@ node_modules/
 dist/
 out/
 dist-electron/
+.dev.lock
 *.log
 .DS_Store
 Thumbs.db
