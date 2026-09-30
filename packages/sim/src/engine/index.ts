@@ -177,13 +177,18 @@ export function createEngine(
 }
 
 /** 世界工厂：出生时刻向下对齐到网格；初始一株一叶；基因组由 seed 派生（I1）。 */
-export function createWorld(seed: string, bornSimTime: number, env: EnvConfig): WorldState {
+export function createWorld(
+  seed: string,
+  bornSimTime: number,
+  env: EnvConfig,
+  genomeBase?: Record<string, number>,
+): WorldState {
   const simTime = floorToGrid(bornSimTime)
   const plant: PlantState = {
     id: `plant-${seed}`,
     speciesId: 'echeveria',
     seed,
-    genome: getSpecies('echeveria').createGenome(createRng(`${seed}|genome`)),
+    genome: getSpecies('echeveria').createGenome(createRng(`${seed}|genome`), genomeBase),
     bornSimTime,
     water: 0.9,
     stress: { light: 0, drought: 0, temp: 0 },
