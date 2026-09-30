@@ -16,11 +16,24 @@ await buildMain()
 console.info(`[dev] renderer: ${url}`)
 console.info('[dev] launching electron…')
 
-const child = spawn(electronPath, [appRoot], {
+const electron = spawn(electronPath, [appRoot], {
   stdio: 'inherit',
   env: { ...process.env, ELECTRON_RENDERER_URL: url },
 })
-child.on('close', async (code) => {
+
+// Ctrl+C / 异常退出时清理子进程与 dev server，避免孤儿进程占端口
+let closing = false
+async function shutdown(code) {
+  if (closing) return
+  closing = true
+  electron.kill()
   await server.close()
-  process.exit(code ?? 0)
+  process.exit(code)
+}
+process.on('SIGINT', () => void shutdown(0))
+process.on('SIGTERM', () => void shutdown(0))
+process.on('uncaughtException', (err) => {
+  console.error('[dev] uncaught exception:', err)
+  void shutdown(1)
 })
+electron.on('close', (code) => void shutdown(code ?? 0))
