@@ -106,3 +106,25 @@ export class RenderScheduler {
     else if (this.rafId === 0) this.rafId = requestAnimationFrame(this.tick)
   }
 }
+
+/**
+ * 命中测试助手（PointerHitResolver 的渲染侧输入，A3）：
+ * 屏幕坐标 → 是否命中实体（代理网格 raycast）。穿透切换在 desktop 层做（07 §5）。
+ */
+export function makeHitTester(root: SceneRoot): (clientX: number, clientY: number) => boolean {
+  const raycaster = new THREE.Raycaster()
+  const ndc = new THREE.Vector2()
+  const meshes: THREE.Mesh[] = []
+  root.scene.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh)
+  })
+
+  return (clientX, clientY) => {
+    const rect = root.renderer.domElement.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return false
+    ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1
+    ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1
+    raycaster.setFromCamera(ndc, root.camera)
+    return raycaster.intersectObjects(meshes, false).length > 0
+  }
+}
