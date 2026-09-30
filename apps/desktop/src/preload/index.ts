@@ -21,5 +21,14 @@ const bridge: DesktopBridge = {
   focusWindow() {
     ipcRenderer.send(IpcChannels.FocusWindow)
   },
+  async loadSave() {
+    return ipcRenderer.invoke(IpcChannels.PersistenceLoad)
+  },
+  async checkpoint(saveJson: string, newEventLines: string) {
+    await ipcRenderer.invoke(IpcChannels.PersistenceCheckpoint, saveJson, newEventLines)
+  },
+  appendInput(line: string) {
+    ipcRenderer.send(IpcChannels.PersistenceAppendInput, line)
+  },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)

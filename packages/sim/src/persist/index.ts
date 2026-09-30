@@ -18,6 +18,8 @@ export interface SaveFile {
   eventLogRef: string
   /** 检查点记录的 WAL 水位（02 §6.4）：恢复时只重放 seq 大于它的输入 */
   inputWalOffset: number
+  /** 检查点时的事件条数：载入时据此截断事件日志（之后的会由重放重新生成） */
+  eventCount: number
   appState: {
     windowBounds?: { x: number; y: number; width: number; height: number }
     scale: number

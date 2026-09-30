@@ -102,10 +102,10 @@ class InProcessSimEngine implements SimEngine {
     return this._events
   }
 
-  apply(input: InputEvent): void {
+  apply(input: InputEvent, opts?: { skipWal?: boolean }): void {
     const stamped: InputEvent = { ...input, seq: ++this._inputSeq }
     // 预写日志：确认（WAL 落盘 ack）后才允许在步边界结算（02 §6.4）
-    this.wal?.append(stamped)
+    if (!opts?.skipWal) this.wal?.append(stamped)
     this._pending.push(stamped)
   }
 
@@ -139,6 +139,7 @@ class InProcessSimEngine implements SimEngine {
       inputLogRef: 'inputs.jsonl',
       eventLogRef: 'events.jsonl',
       inputWalOffset: this._inputSeq,
+      eventCount: this._events.length,
       appState: { scale: 1 },
     }
   }

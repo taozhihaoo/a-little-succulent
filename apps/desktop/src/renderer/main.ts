@@ -1,7 +1,14 @@
 import {
   createEngine,
   createWorld,
+  gridTarget,
+  judgeWallDelta,
+  parseSave,
+  type InputEvent,
+  type InputWal,
   type PhenotypeSnapshot,
+  type SimEngine,
+  type SimEvent,
 } from '@succulent/sim'
 import {
   createSceneRoot,
@@ -19,31 +26,92 @@ const root = createSceneRoot(container)
 const scheduler = new RenderScheduler(root)
 scheduler.start()
 
-// —— 垂直切片（07 §7）：SimEngine → snapshot → PlantRenderer ——
-// M1 阶段模拟跑在 renderer 主线程（InProcessSimHost，07 §2）；存档/WAL 接线属 M3。
+// —— 垂直切片（07 §7）+ M3 存档：SimEngine → snapshot → PlantRenderer ——
 const DAY = 86_400_000
 const SEED = 'echeveria-001'
-/** 初始苗龄（模拟日）：45 天 ≈ 9~10 片叶的少年莲座；M3 存档系统落地后由存档决定 */
+/** 初始苗龄（模拟日）：45 天；仅用于全新开始 */
 const INITIAL_AGE_DAYS = 45
 
-const world = createWorld(SEED, Date.now() - INITIAL_AGE_DAYS * DAY, {
-  placement: 'windowsill',
-  utcOffsetMinutes: -new Date().getTimezoneOffset(),
-  hemisphere: 'north',
-})
-const engine = createEngine({ world })
-engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算
+let engine: ReturnType<typeof createEngine> | null = null
+let flushedEvents = 0
+
+// 输入 WAL：会话内存镜像 + IPC 追加（fire-and-forget，崩溃窗口毫秒级）
+const sessionInputs: InputEvent[] = []
+const ipcWal: InputWal = {
+  append(input) {
+    sessionInputs.push(input)
+    bridge.appendInput(JSON.stringify(input))
+  },
+}
 
 const plantRenderer = new PlantRenderer(root.scene, true, scheduler)
 
 function sync(): void {
+  if (!engine) return
   const snapshot: PhenotypeSnapshot = engine.latestSnapshot()
   plantRenderer.update(snapshot)
 }
-sync()
+
+function checkpoint(): void {
+  if (!engine) return
+  const save = engine.checkpoint()
+  save.lastWallSeen = Date.now()
+  save.eventCount = flushedEvents
+  const newEvents = engine.events.slice(flushedEvents)
+  const payload = newEvents.map((e) => JSON.stringify(e)).join('\n')
+  flushedEvents = engine.events.length
+  void bridge.checkpoint(JSON.stringify(save), payload)
+}
+
+/** 02 §6.4 载入流程：检查点 → 截断后的事件前缀 → WAL 重放 → 墙钟追赶 */
+async function bootSim(): Promise<void> {
+  const data = await bridge.loadSave()
+  if (data.saveJson) {
+    try {
+      const save = parseSave(data.saveJson)
+      if (save.formatVersion === 1) {
+        const events: SimEvent[] = data.eventLines.map((l) => JSON.parse(l) as SimEvent)
+        const eventSeq = events.length > 0 ? (events[events.length - 1]!.seq ?? 0) : 0
+        flushedEvents = events.length
+        engine = createEngine({
+          world: save.world,
+          events,
+          eventSeq,
+          inputSeq: save.inputWalOffset,
+          wal: ipcWal,
+        })
+        // 墙钟追赶 + 回拨保护（02 §1.2 / §1.4）
+        const verdict = judgeWallDelta(save.lastWallSeen, Date.now())
+        if (verdict.status === 'ok') {
+          engine.advance(gridTarget(Date.now()), Number.MAX_SAFE_INTEGER)
+        } else {
+          console.warn('[sim] 检测到系统时钟回拨——本次会话模拟时间冻结')
+        }
+        console.info('[sim] 存档已恢复：sim =', new Date(engine.simTime).toLocaleString())
+        sync()
+        return
+      }
+      console.warn('[sim] 存档格式版本不支持——重新开始')
+    } catch (err) {
+      console.error('[sim] 存档损坏——重新开始', err)
+    }
+  }
+  engine = createEngine({
+    world: createWorld(SEED, Date.now() - INITIAL_AGE_DAYS * DAY, {
+      placement: 'windowsill',
+      utcOffsetMinutes: -new Date().getTimezoneOffset(),
+      hemisphere: 'north',
+    }),
+    wal: ipcWal,
+  })
+  engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
+  console.info('[sim] 全新开始')
+  sync()
+}
+
+void bootSim()
 
 // —— dev：昼夜预览与一日延时的互斥状态 ——
-// K = 四相预览锁定（晨/午/昏/夜/回到模拟时间）；L = 一日延时（60 秒播完 24 小时）。
 const DAY_PREVIEW = [0.31, 0.5, 0.69, 0.97]
 let previewIdx = -1
 let lapseActive = false
@@ -53,29 +121,33 @@ const LAPSE_MS = 60000
 
 root.onFrame = (frameTimeMs) => {
   plantRenderer.updateEffects(frameTimeMs)
+  if (!engine) return
   if (lapseActive) {
     const t = (performance.now() - lapseStartMs) / LAPSE_MS
     root.setDayPhase((lapseBasePhase + t) % 1)
-    scheduler.requestFrames(1200) // 滚动续帧：延时渐变平滑不被 Ambient 间隙打断
+    scheduler.requestFrames(1200)
   } else if (previewIdx === -1) {
     root.setDayPhase(engine.latestSnapshot().dayPhase)
   }
 }
 
-// 会话内低频推进（02 §1.2）；持久化调度属 M3
+// 会话内低频推进 + 检查点（02 §1.2 / §6.2）
 setInterval(() => {
+  if (!engine) return
   engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
   scheduler.invalidate()
   sync()
+  checkpoint()
 }, 30_000)
 
-// dev：] = 快进 7 模拟日（目标必须是引擎 simTime——用 Date.now() 会在首次快进后空转）
+// dev：] = 快进 7 模拟日 + 立即检查点（快进必须可持久化）
 window.addEventListener('keydown', (e) => {
-  if (!import.meta.env.DEV) return
+  if (!import.meta.env.DEV || !engine) return
   if (e.code === 'BracketRight') {
     engine.advance(engine.simTime + 7 * DAY, Number.MAX_SAFE_INTEGER)
     sync()
     scheduler.invalidate()
+    checkpoint()
     const plant = engine.world.plants[0]
     const alive = plant?.leaves.filter((l) => l.droppedSimTime === undefined).length ?? 0
     const ageDays = Math.round((engine.simTime - (plant?.bornSimTime ?? 0)) / DAY)
@@ -101,7 +173,7 @@ window.addEventListener('keydown', (e) => {
 
 // dev：K = 四相昼夜预览锁定；L = 一日延时。任一激活会取消另一个。
 window.addEventListener('keydown', (e) => {
-  if (!import.meta.env.DEV) return
+  if (!import.meta.env.DEV || !engine) return
   if (e.code === 'KeyL' && !e.shiftKey) {
     lapseActive = !lapseActive
     previewIdx = -1
@@ -124,7 +196,6 @@ window.addEventListener('keydown', (e) => {
       '[dev] dayPhase preview =',
       previewIdx === DAY_PREVIEW.length ? 'sim time' : phase,
     )
-    return
   }
 })
 

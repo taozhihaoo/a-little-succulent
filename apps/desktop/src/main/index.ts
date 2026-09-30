@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { IpcChannels } from '../shared/protocol'
+import { initPersistence } from './persistence'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -165,6 +166,7 @@ ipcMain.on(IpcChannels.FocusWindow, () => {
 })
 
 void app.whenReady().then(() => {
+  initPersistence()
   app.on('second-instance', () => win?.show())
   win = createWindow()
   createTray()

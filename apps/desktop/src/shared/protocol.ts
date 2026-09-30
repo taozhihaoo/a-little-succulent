@@ -11,11 +11,24 @@ export const IpcChannels = {
   SetBounds: 'desktop:set-bounds',
   /** renderer → main：窗口抢键盘焦点（K/] 等快捷键依赖焦点） */
   FocusWindow: 'desktop:focus-window',
+  /** renderer → main：载入存档（检查点 + 输入 WAL + 事件日志，02 §6.4） */
+  PersistenceLoad: 'persistence:load',
+  /** renderer → main：检查点原子落盘 + 追加新事件 */
+  PersistenceCheckpoint: 'persistence:checkpoint',
+  /** renderer → main：输入 WAL 追加（预写日志） */
+  PersistenceAppendInput: 'persistence:append-input',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
 
 /** preload 暴露给 renderer 的最小桥 */
+/** 存档载荷（02 §6.4 载入流程的输入） */
+export interface SavePayload {
+  saveJson: string | null
+  inputLines: string[]
+  eventLines: string[]
+}
+
 export interface DesktopBridge {
   version: string
   setIgnoreMouseEvents(ignore: boolean): void
@@ -24,4 +37,7 @@ export interface DesktopBridge {
   dragEnd(): void
   setBounds(width: number, height: number): void
   focusWindow(): void
+  loadSave(): Promise<SavePayload>
+  checkpoint(saveJson: string, newEventLines: string): Promise<void>
+  appendInput(line: string): void
 }
