@@ -117,8 +117,36 @@ export class PlantRenderer {
       })
     }
   }
+  /** 浇水视觉：数颗水滴从上方落下（约 0.6s） */
+  waterBurst(nowMs: number): void {
+    if (this.waterDrops.length > 0) return
+    const geo = new THREE.SphereGeometry(1.4, 8, 8)
+    const mat = new THREE.MeshPhysicalMaterial({ color: 0x9fd4ff, roughness: 0.1, transparent: true, opacity: 0.85 })
+    for (let i = 0; i < 5; i++) {
+      const mesh = new THREE.Mesh(geo, mat)
+      const x = (Math.random() - 0.5) * 24
+      const z = (Math.random() - 0.5) * 24
+      mesh.position.set(x, SOIL_Y + 38, z)
+      this.group.add(mesh)
+      this.waterDrops.push({ mesh, born: nowMs + i * 90, y0: SOIL_Y + 38, x, z })
+    }
+    this.waterFxUntil = nowMs + 1600
+  }
+
   updateEffects(timeMs: number): void {
     this.dew?.update(timeMs, this.meshes)
+    for (let i = this.waterDrops.length - 1; i >= 0; i--) {
+      const d = this.waterDrops[i]
+      if (!d) continue
+      const age = timeMs - d.born
+      if (age < 0) continue
+      const t = Math.min(1, age / 550)
+      d.mesh.position.set(d.x, d.y0 + ((SOIL_Y + 3) - d.y0) * t * t, d.z)
+      if (t >= 1) {
+        this.group.remove(d.mesh)
+        this.waterDrops.splice(i, 1)
+      }
+    }
     this.glowDrift?.(timeMs)
   }
 
