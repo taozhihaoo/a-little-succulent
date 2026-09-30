@@ -6,6 +6,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "soak": "node scripts/soak.mjs",
     "build": "vite build && node scripts/build-main.mjs"
   },
   "dependencies": {

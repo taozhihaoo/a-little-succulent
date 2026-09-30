@@ -13,7 +13,9 @@ import { IpcChannels } from '../shared/protocol'
 let saveDir = ''
 
 export function initPersistence(): void {
-  saveDir = path.join(app.getPath('userData'), 'succulent-save')
+  // soak 模式独立存档目录，不污染日常验收植物
+  const base = process.env.SUCCULENT_SOAK ? path.join(app.getPath('userData'), 'soak-save') : app.getPath('userData')
+  saveDir = path.join(base, 'succulent-save')
   mkdirSync(saveDir, { recursive: true })
 
   ipcMain.handle(IpcChannels.PersistenceLoad, () => {
