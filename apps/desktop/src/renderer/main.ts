@@ -284,6 +284,10 @@ document.addEventListener('pointerdown', (e) => {
 })
 
 // 退出前落盘（主进程 before-quit 请求）
+bridge.onFullscreen((fs) => {
+  scheduler.setPhase(fs ? 'DeepIdle' : previewIdx === -1 && !lapseActive ? 'Ambient' : scheduler.phase)
+})
+
 bridge.onFlushRequest(async () => {
   await checkpoint()
   bridge.sendFlushDone()

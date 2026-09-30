@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { IpcChannels } from '../shared/protocol'
 import { initPersistence } from './persistence'
+import { startFullscreenWatcher } from './fullscreen'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -167,6 +168,11 @@ ipcMain.on(IpcChannels.FocusWindow, () => {
 
 void app.whenReady().then(() => {
   initPersistence()
+  // A13：全屏应用检测 -> 强制 DeepIdle（渲染三态，02 §4）
+  startFullscreenWatcher(
+    () => win,
+    (fs) => win?.webContents.send(IpcChannels.FullscreenChanged, fs),
+  )
   app.on('second-instance', () => win?.show())
   win = createWindow()
   createTray()

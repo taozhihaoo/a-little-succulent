@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@succulent/render": "workspace:*",
-    "@succulent/sim": "workspace:*"
+    "@succulent/sim": "workspace:*",
+    "koffi": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

@@ -33,6 +33,9 @@ const bridge: DesktopBridge = {
   onFlushRequest(cb: () => void) {
     ipcRenderer.on(IpcChannels.AppFlushRequest, () => cb())
   },
+  onFullscreen(cb: (fullscreen: boolean) => void) {
+    ipcRenderer.on(IpcChannels.FullscreenChanged, (_e, fs: unknown) => cb(fs === true))
+  },
   sendFlushDone() {
     ipcRenderer.send(IpcChannels.AppFlushDone)
   },

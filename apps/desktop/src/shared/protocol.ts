@@ -19,6 +19,8 @@ export const IpcChannels = {
   PersistenceAppendInput: 'persistence:append-input',
   /** main -> renderer: flush request before quit */
   AppFlushRequest: 'app:flush-request',
+  /** main -> renderer: A13 fullscreen app detected (DeepIdle trigger) */
+  FullscreenChanged: 'desktop:fullscreen-changed',
   /** renderer -> main: flush done */
   AppFlushDone: 'app:flush-done',
   /** renderer → main：清除全部存档文件（dev 危险操作） */
@@ -47,6 +49,7 @@ export interface DesktopBridge {
   checkpoint(saveJson: string, newEventLines: string): Promise<void>
   appendInput(line: string): void
   onFlushRequest(cb: () => void): void
+  onFullscreen(cb: (fullscreen: boolean) => void): void
   sendFlushDone(): void
   resetSave(): Promise<void>
 }
