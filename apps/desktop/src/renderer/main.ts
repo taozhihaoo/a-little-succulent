@@ -23,8 +23,10 @@ scheduler.start()
 // M1 阶段模拟跑在 renderer 主线程（InProcessSimHost，07 §2）；存档/WAL 接线属 M3。
 const DAY = 86_400_000
 const SEED = 'echeveria-001'
+/** 初始苗龄（模拟日）：45 天 ≈ 9~10 片叶的少年莲座；M3 存档系统落地后由存档决定 */
+const INITIAL_AGE_DAYS = 45
 
-const world = createWorld(SEED, Date.now() - 6 * DAY, {
+const world = createWorld(SEED, Date.now() - INITIAL_AGE_DAYS * DAY, {
   placement: 'windowsill',
   utcOffsetMinutes: -new Date().getTimezoneOffset(),
   hemisphere: 'north',
