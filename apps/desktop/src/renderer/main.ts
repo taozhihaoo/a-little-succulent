@@ -35,7 +35,10 @@ const engine = createEngine({ world })
 engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算
 
 const plantRenderer = new PlantRenderer(root.scene, true, scheduler)
-root.onFrame = (frameTimeMs) => plantRenderer.updateEffects(frameTimeMs)
+root.onFrame = (frameTimeMs) => {
+  plantRenderer.updateEffects(frameTimeMs)
+  root.setDayPhase(engine.latestSnapshot().dayPhase)
+}
 
 function sync(): void {
   const snapshot: PhenotypeSnapshot = engine.latestSnapshot()
@@ -79,6 +82,17 @@ window.addEventListener('keydown', (e) => {
     exitContactSheet = null
     hitTest.rescan()
   }
+})
+
+// dev：K 键循环预览晨/午/昏/夜（正式昼夜跟随模拟时间）
+const DAY_PREVIEW = [0.31, 0.5, 0.69, 0.97]
+let previewIdx = -1
+window.addEventListener('keydown', (e) => {
+  if (!import.meta.env.DEV || e.code !== 'KeyK' || e.shiftKey) return
+  previewIdx = (previewIdx + 1) % (DAY_PREVIEW.length + 1)
+  const phase = previewIdx === DAY_PREVIEW.length ? engine.latestSnapshot().dayPhase : DAY_PREVIEW[previewIdx]!
+  root.setDayPhase(phase)
+  console.info('[dev] dayPhase preview =', previewIdx === DAY_PREVIEW.length ? 'sim time' : phase)
 })
 
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）

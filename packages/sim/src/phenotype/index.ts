@@ -1,5 +1,7 @@
 /** PhenotypeSnapshot（02 §3.3）：模拟 → 渲染的唯一桥梁。纯参数，不含网格。 */
+import { sampleEnv } from '../env'
 import type { OrganPose } from '../species'
+import type { EnvConfig } from '../world'
 import { getSpecies } from '../species/registry'
 import type { PlantState } from '../world'
 
@@ -29,6 +31,8 @@ export interface PhenotypeSnapshot {
   plantId: string
   simTime: number
   generatorVersion: number
+  /** 0~1 昼夜相位（0 午夜 / 0.5 正午；由 utcOffset 换算，02 §2.2） */
+  dayPhase: number
   /** 0~1 植株水分（影响材质 roughness / 褶皱，04 §6） */
   water: number
   stretch: number
@@ -56,6 +60,7 @@ export function derivePhenotype(
   plant: PlantState,
   simTime: number,
   generatorVersion: number,
+  env: EnvConfig,
 ): PhenotypeSnapshot {
   const species = getSpecies(plant.speciesId)
   const g = (name: string): number => plant.genome.values[name] ?? 0.5
@@ -76,6 +81,7 @@ export function derivePhenotype(
     plantId: plant.id,
     simTime,
     generatorVersion,
+    dayPhase: sampleEnv(simTime, env).dayPhase,
     water: plant.water,
     stretch: plant.stretch,
     material: {

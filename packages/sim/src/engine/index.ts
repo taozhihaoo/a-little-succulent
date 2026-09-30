@@ -122,7 +122,7 @@ class InProcessSimEngine implements SimEngine {
   latestSnapshot(): PhenotypeSnapshot {
     const plant = this._world.plants[0]
     if (!plant) throw new Error('latestSnapshot: world has no plants')
-    this.snapshotCache ??= derivePhenotype(plant, this._world.simTime, GENERATOR_VERSION)
+    this.snapshotCache ??= derivePhenotype(plant, this._world.simTime, GENERATOR_VERSION, this._world.env)
     return this.snapshotCache
   }
 

@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { sunState } from './sun'
 
 export type RenderPhase = 'DeepIdle' | 'Ambient' | 'Active'
 
@@ -12,6 +13,8 @@ export interface SceneRoot {
   renderer: THREE.WebGLRenderer
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
+  /** 昼夜光照：phase 0 午夜 / 0.5 正午（由快照 dayPhase 驱动） */
+  setDayPhase(phase: number): void
   /** 渲染帧回调（Ambient burst / Active 帧内；露珠等微动画驱动） */
   onFrame?: (timeMs: number) => void
   dispose(): void
@@ -56,7 +59,8 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   const fill = new THREE.DirectionalLight(0xdfe8ff, 0.5)
   fill.position.set(-100, 60, -80)
   scene.add(fill)
-  scene.add(new THREE.AmbientLight(0xffffff, 0.18))
+  const ambient = new THREE.AmbientLight(0xffffff, 0.18)
+  scene.add(ambient)
 
   const onResize = () => {
     const w = container.clientWidth
@@ -69,10 +73,29 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   const observer = new ResizeObserver(onResize)
   observer.observe(container)
 
+  /** 昼夜光照：太阳东升西落，晨昏暖橙，夜晚冷蓝月色（phase 0 午夜 / 0.5 正午） */
+  const setDayPhase = (phase: number): void => {
+    const dl = Math.max(0, Math.min(1, Math.sin(((phase - 0.25) * Math.PI) / 0.5)))
+    const sunT = Math.min(0.98, Math.max(0.02, (phase - 0.25) / 0.5))
+    const az = Math.cos(sunT * Math.PI)
+    key.position.set(az * 130, 40 + 170 * dl, 95)
+    const warmth = 1 - dl
+    key.color.setRGB(1, 0.97 - 0.42 * warmth, 0.9 - 0.6 * warmth)
+    key.intensity = 0.35 + 1.25 * dl
+    fill.intensity = 0.12 + 0.38 * dl
+    ambient.intensity = 0.06 + 0.12 * dl
+    scene.environmentIntensity = 0.08 + 0.2 * dl
+    const night = 1 - Math.min(1, dl * 1.6)
+    fill.color.setRGB(0.87 - 0.2 * night, 0.91 - 0.1 * night, 1)
+    ambient.color.setRGB(0.75 - 0.15 * night, 0.82 - 0.08 * night, 1)
+    sunState.dir.set(az * 0.65, 0.2 + 0.7 * dl, 0.48).normalize()
+  }
+
   return {
     renderer,
     scene,
     camera,
+    setDayPhase,
     dispose() {
       observer.disconnect()
       renderer.dispose()

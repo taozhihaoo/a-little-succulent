@@ -7,6 +7,7 @@
  * 禁用真 transmission：透明窗口后是用户桌面，场景内折射无意义（总方案 §38.2）。
  */
 import * as THREE from 'three'
+import { sunState } from './sun'
 
 export interface LeafMaterialUniforms {
   /** 主光方向（视图空间，由 onBeforeRender 每帧更新） */
@@ -84,9 +85,8 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
   }
 
   // 每帧把主光方向换到视图空间（背光项使用）
-  const keyWorld = new THREE.Vector3(0.55, 0.75, 0.62).normalize() // 与 SceneRoot 主光方位一致
   material.onBeforeRender = (_renderer, _scene, camera) => {
-    uniforms.uKeyDir.value.copy(keyWorld).transformDirection(camera.matrixWorldInverse)
+    uniforms.uKeyDir.value.copy(sunState.dir).transformDirection(camera.matrixWorldInverse)
   }
 
   return uniforms
