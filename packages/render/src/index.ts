@@ -183,16 +183,27 @@ export class RenderScheduler {
 /**
  * 命中测试助手（PointerHitResolver 的渲染侧输入，A3）：
  * 屏幕坐标 → 是否命中实体（raycast）。穿透切换在 desktop 层做（07 §5）。
+ * rescan()：场景内容变化后重扫网格清单（如联系表挂载/退出，07 §5）。
  */
-export function makeHitTester(root: SceneRoot): (clientX: number, clientY: number) => boolean {
+export interface HitTester {
+  (clientX: number, clientY: number): boolean
+  rescan(): void
+}
+
+export function makeHitTester(root: SceneRoot): HitTester {
   const raycaster = new THREE.Raycaster()
   const ndc = new THREE.Vector2()
-  const meshes: THREE.Mesh[] = []
-  root.scene.traverse((o) => {
-    if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh)
-  })
+  let meshes: THREE.Mesh[] = []
 
-  return (clientX, clientY) => {
+  const rescan = (): void => {
+    meshes = []
+    root.scene.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh)
+    })
+  }
+  rescan()
+
+  const test = (clientX: number, clientY: number): boolean => {
     const rect = root.renderer.domElement.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) return false
     ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1
@@ -200,6 +211,8 @@ export function makeHitTester(root: SceneRoot): (clientX: number, clientY: numbe
     raycaster.setFromCamera(ndc, root.camera)
     return raycaster.intersectObjects(meshes, false).length > 0
   }
+  ;(test as HitTester).rescan = rescan
+  return test as HitTester
 }
 
 export { buildLeafGeometry, type LeafShapeParams } from './leaf'

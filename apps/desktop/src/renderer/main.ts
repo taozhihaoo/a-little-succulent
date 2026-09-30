@@ -71,10 +71,12 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyC' && e.shiftKey && !exitContactSheet) {
     void import('../dev/contact-sheet').then((m) => {
       exitContactSheet = m.mountContactSheet(root, plantRenderer, bridge)
+      hitTest.rescan() // 网格清单刷新：联系表的 1300+ 网格要参与命中测试
     })
   } else if (e.code === 'Escape' && exitContactSheet) {
     exitContactSheet()
     exitContactSheet = null
+    hitTest.rescan()
   }
 })
 
