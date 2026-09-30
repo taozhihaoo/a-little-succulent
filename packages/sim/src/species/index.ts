@@ -28,6 +28,8 @@ export interface OrganPose {
   turgor: number
 }
 
+export * from './echeveria'
+
 export interface SpeciesDef {
   id: string
   /** = speciesVersion（02 §6.1） */

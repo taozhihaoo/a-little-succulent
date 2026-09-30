@@ -247,3 +247,11 @@ export const ECHEVERIA: SpeciesDef = {
     return poses
   },
 }
+
+/** dev 风格预览：按预设表生成带抖动的基因组（Shift+V 切换写实/绚丽） */
+export function makeJitteredGenome(
+  rng: Rng,
+  baseTable?: Record<string, number>,
+): Genome {
+  return ECHEVERIA.createGenome(rng, baseTable)
+}

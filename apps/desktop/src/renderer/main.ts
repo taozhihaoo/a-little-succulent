@@ -1,5 +1,6 @@
 import {
   createEngine,
+  createRng,
   createWorld,
   gridTarget,
   judgeWallDelta,
@@ -7,6 +8,8 @@ import {
   type InputEvent,
   type PhenotypeSnapshot,
   type SimEvent,
+  makeJitteredGenome,
+  ECHEVERIA_VIVID_GENOME,
 } from '@succulent/sim'
 import {
   createSceneRoot,
@@ -150,6 +153,8 @@ window.addEventListener('keydown', (e) => {
 })
 
 // dev：Shift+C 开 100 株联系表（03 §7），Esc 退出；Shift+S 在表内导出 PNG。仅 DEV 构建。
+// dev：Shift+V 切换写实/绚丽（替换当前植株基因组；dev 预览用途，重载回存档）
+let styleVivid = false
 let exitContactSheet: (() => void) | null = null
 window.addEventListener('keydown', (e) => {
   if (!import.meta.env.DEV) return
@@ -282,6 +287,22 @@ document.addEventListener('pointerdown', (e) => {
 bridge.onFlushRequest(async () => {
   await checkpoint()
   bridge.sendFlushDone()
+})
+
+window.addEventListener('keydown', (e) => {
+  if (!import.meta.env.DEV) return
+  if (e.code === 'KeyV' && e.shiftKey && engine) {
+    styleVivid = !styleVivid
+    const base = styleVivid ? ECHEVERIA_VIVID_GENOME : undefined
+    const plant = engine.world.plants[0]
+    if (plant) {
+      const genome = makeJitteredGenome(createRng(SEED + (styleVivid ? '|vivid' : '|genome')), base)
+      plant.genome.values = genome.values
+    }
+    sync()
+    scheduler.invalidate()
+    console.info('[dev] style =', styleVivid ? 'vivid' : 'realistic')
+  }
 })
 
 console.info('[renderer] up; bridge =', bridge?.version ?? 'none')
