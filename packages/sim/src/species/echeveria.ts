@@ -132,6 +132,15 @@ export const ECHEVERIA: SpeciesDef = {
       plant.counters['nextLeafAt'] = simTime + intervalMs
     }
 
+    // 徒长（04 §6）：长期光照亏缺积累；光照充足缓慢恢复（形态记忆而非恢复已长叶）
+    const deficit = Math.max(0, 0.38 - env.light)
+    const drift = (deficit * 0.003 - env.light * 0.0014) * (dtMs / HOUR)
+    plant.stretch = Math.max(0, Math.min(1, plant.stretch + drift))
+    if (plant.stretch > 0.45 && plant.counters['stretch.seen'] === undefined) {
+      plant.counters['stretch.seen'] = 1
+      ctx.emit({ simTime, plantId: plant.id, kind: 'stretch.visible', tier: 'growth' })
+    }
+
     // 每叶：成熟 / turgor / 应激色 / 衰老脱落
     const expandMs = EXPAND_DAYS * DAY
     for (const leaf of plant.leaves) {
@@ -192,18 +201,18 @@ export const ECHEVERIA: SpeciesDef = {
         (1 - leaf.turgor) * 0.2 +
         (1 - leaf.maturity) * 0.15
       const length = lengthBase * (0.55 + 0.45 * Math.sqrt(f)) * (0.25 + 0.75 * leaf.maturity) * sizeScale
-      const width = length * (0.36 + 0.24 * wGene) * (1 + 0.15 * tGene) // 耦合：厚 → 宽
+      const width = length * (0.36 + 0.24 * wGene) * (1 + 0.15 * tGene) * (1 - 0.3 * plant.stretch) // 徒长：叶变稀 // 耦合：厚 → 宽
       poses.push({
         ring: Math.round(f * 5),
         tilt,
         azimuth,
-        offset: radius * sizeScale * 0.4, // 叶基收拢到生长点附近（消除悬浮空隙）,
+        offset: radius * sizeScale * 0.4 * (1 + 0.35 * plant.stretch), // 效果叠加：节间拉长+收拢
         droop: (1 - leaf.turgor) * 0.2 + (1 - leaf.maturity) * 0.15,
         curl: curve,
         growth: leaf.maturity,
         length,
         width,
-        thickness: width * (0.55 + 0.55 * tGene), // M2 反馈：加厚去塑料感
+        thickness: width * (0.55 + 0.55 * tGene) * (1 - 0.2 * plant.stretch), // M2 反馈：加厚去塑料感
         colorState: leaf.colorState,
         turgor: leaf.turgor,
       })

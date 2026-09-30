@@ -105,3 +105,19 @@ describe('快照管线（07 §7 前半）', () => {
     }
   })
 })
+
+describe('徒长机制（04 §6）', () => {
+  it('长期遮荫 stretch 上升并触发迹象；充足光照回落', () => {
+    const shade = createWorld('stretch-shade', 0, { ...ENV, placement: 'shade' })
+    const shadeEngine = createEngine({ world: shade })
+    shadeEngine.advance(60 * DAY, Number.MAX_SAFE_INTEGER)
+    expect(shade.plants[0]!.stretch).toBeGreaterThan(0.25)
+    const kinds = shadeEngine.events.map((e) => e.kind)
+    expect(kinds).toContain('stretch.visible')
+
+    const sun = createWorld('stretch-sun', 0, { ...ENV, placement: 'windowsill' })
+    const sunEngine = createEngine({ world: sun })
+    sunEngine.advance(60 * DAY, Number.MAX_SAFE_INTEGER)
+    expect(sun.plants[0]!.stretch).toBeLessThan(0.15)
+  })
+})
