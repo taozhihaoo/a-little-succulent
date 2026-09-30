@@ -79,15 +79,22 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
     const sunT = Math.min(0.98, Math.max(0.02, (phase - 0.25) / 0.5))
     const az = Math.cos(sunT * Math.PI)
     key.position.set(az * 130, 40 + 170 * dl, 95)
-    const warmth = 1 - dl
-    key.color.setRGB(1, 0.97 - 0.42 * warmth, 0.9 - 0.6 * warmth)
+    // color temperature weights: night blue-purple / dusk orange / day warm white
+    const wNight = 1 - Math.min(1, dl * 2.5)
+    const wDay = Math.max(0, (dl - 0.45) / 0.55)
+    const wDusk = Math.max(0, 1 - wNight - wDay)
+    key.color.setRGB(
+      0.52 * wNight + 1.0 * wDusk + 1.0 * wDay,
+      0.55 * wNight + 0.5 * wDusk + 0.97 * wDay,
+      1.0 * wNight + 0.28 * wDusk + 0.9 * wDay,
+    )
     key.intensity = 0.35 + 1.25 * dl
     fill.intensity = 0.12 + 0.38 * dl
     ambient.intensity = 0.06 + 0.12 * dl
     scene.environmentIntensity = 0.08 + 0.2 * dl
     const night = 1 - Math.min(1, dl * 1.6)
-    fill.color.setRGB(0.87 - 0.2 * night, 0.91 - 0.1 * night, 1)
-    ambient.color.setRGB(0.75 - 0.15 * night, 0.82 - 0.08 * night, 1)
+    fill.color.setRGB(0.83 - 0.17 * night, 0.91 - 0.19 * night, 1)
+    ambient.color.setRGB(0.75 - 0.13 * night, 0.82 - 0.17 * night, 1)
     sunState.dir.set(az * 0.65, 0.2 + 0.7 * dl, 0.48).normalize()
   }
 

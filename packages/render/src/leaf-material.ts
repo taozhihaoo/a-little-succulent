@@ -87,6 +87,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
   // 每帧把主光方向换到视图空间（背光项使用）
   material.onBeforeRender = (_renderer, _scene, camera) => {
     uniforms.uKeyDir.value.copy(sunState.dir).transformDirection(camera.matrixWorldInverse)
+    uniforms.uKeyColor.value.copy(sunState.color)
   }
 
   return uniforms
