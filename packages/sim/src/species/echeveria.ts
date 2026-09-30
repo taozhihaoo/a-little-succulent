@@ -17,6 +17,32 @@ const MAX_ALIVE = 48
 const DROP_KEEP_MS = 30 * DAY
 const GOLDEN_ANGLE = 2.399963229728653
 
+/**
+ * 绚丽向预设（docs/08 §3）：短肥圆、密聚拢、强渐变、糖果色。
+ * createWorld genomeBase 传入启用；与写实向并存。
+ */
+export const ECHEVERIA_VIVID_GENOME: Record<string, number> = {
+  leafDensity: 0.78,
+  rosetteCompact: 0.82,
+  outerOpen: 0.3,
+  leafLength: 0.4,
+  leafWidth: 0.72,
+  leafThickness: 0.9,
+  curvature: 0.62,
+  tipSharpness: 0.25,
+  openness: 0.5,
+  baseHue: 0.4,
+  stressHue: 0.35,
+  farina: 0.15,
+  edgeContrast: 0.7,
+  gloss: 0.5,
+  growthRate: 0.55,
+  waterTolerance: 0.6,
+  stressColorPropensity: 0.8,
+  stretchPropensity: 0.3,
+  droughtDecay: 0.6,
+}
+
 /** 04 §13 起始默认基因组（"好看集"，待 M2 调参锁定） */
 export const ECHEVERIA_DEFAULT_GENOME: Record<string, number> = {
   // 叶序
@@ -96,9 +122,18 @@ export const ECHEVERIA: SpeciesDef = {
   id: 'echeveria',
   version: 1,
 
-  createGenome(rng: Rng): Genome {
+/** 风格预览用：按预设表生成带抖动的基因组（dev Shift+V） */
+export function makeJitteredGenome(
+  rng: Rng,
+  baseTable?: Record<string, number>,
+): Genome {
+  return ECHEVERIA.createGenome(rng, baseTable)
+}
+
+  createGenome(rng: Rng, baseTable?: Record<string, number>): Genome {
+    const table = baseTable ?? ECHEVERIA_DEFAULT_GENOME
     const values: Record<string, number> = {}
-    for (const [name, base] of Object.entries(ECHEVERIA_DEFAULT_GENOME)) {
+    for (const [name, base] of Object.entries(table)) {
       // 每基因独立抖动幅度（联系表实测 ±6% 全员 13 叶 → 双胞胎，2026-09-30）
       const amp = GENE_JITTER[name] ?? 0.12
       values[name] = clamp01(base + (rng() - 0.5) * 2 * amp)
