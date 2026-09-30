@@ -32,7 +32,7 @@ export interface SpeciesDef {
   id: string
   /** = speciesVersion（02 §6.1） */
   version: number
-  createGenome(rng: Rng, baseTable?: Record<string, number>): Genome
+  createGenome(rng: Rng): Genome
   growStep(plant: PlantState, env: EnvSample, dtMs: number, ctx: StepCtx): void
   /** 生长语法：由状态派生全部器官姿态（总方案 §11.2） */
   morphology(plant: PlantState): OrganPose[]
