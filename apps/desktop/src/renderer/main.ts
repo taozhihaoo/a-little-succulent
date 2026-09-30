@@ -35,15 +35,19 @@ const engine = createEngine({ world })
 engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算
 
 const plantRenderer = new PlantRenderer(root.scene, true, scheduler)
+// A/B 验证：预览相位锁（0=晨 1=午 2=昏 3=夜；-1=跟随模拟时间）
+
 root.onFrame = (frameTimeMs) => {
   plantRenderer.updateEffects(frameTimeMs)
-  root.setDayPhase(engine.latestSnapshot().dayPhase)
+  if (previewIdx === -1) root.setDayPhase(engine.latestSnapshot().dayPhase)
+
 }
 
 function sync(): void {
   const snapshot: PhenotypeSnapshot = engine.latestSnapshot()
   plantRenderer.update(snapshot)
 }
+
 sync()
 
 // 会话内低频推进（02 §1.2）；持久化调度属 M3
