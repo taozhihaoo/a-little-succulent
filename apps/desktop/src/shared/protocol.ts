@@ -17,6 +17,8 @@ export const IpcChannels = {
   PersistenceCheckpoint: 'persistence:checkpoint',
   /** renderer → main：输入 WAL 追加（预写日志） */
   PersistenceAppendInput: 'persistence:append-input',
+  /** renderer → main：清除全部存档文件（dev 危险操作） */
+  PersistenceReset: 'persistence:reset',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -40,4 +42,5 @@ export interface DesktopBridge {
   loadSave(): Promise<SavePayload>
   checkpoint(saveJson: string, newEventLines: string): Promise<void>
   appendInput(line: string): void
+  resetSave(): Promise<void>
 }

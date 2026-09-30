@@ -30,5 +30,8 @@ const bridge: DesktopBridge = {
   appendInput(line: string) {
     ipcRenderer.send(IpcChannels.PersistenceAppendInput, line)
   },
+  async resetSave() {
+    await ipcRenderer.invoke(IpcChannels.PersistenceReset)
+  },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)

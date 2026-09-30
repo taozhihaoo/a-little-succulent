@@ -6,7 +6,7 @@
  *   events.jsonl 事件日志（追加；载入时按检查点 eventCount 截断，02 §6.4）
  */
 import { app, ipcMain } from 'electron'
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { IpcChannels } from '../shared/protocol'
 
@@ -65,6 +65,14 @@ export function initPersistence(): void {
   ipcMain.on(IpcChannels.PersistenceAppendInput, (_event, line: unknown) => {
     if (typeof line === 'string' && line.length > 0) {
       appendFileSync(path.join(saveDir, 'inputs.jsonl'), line + '\n')
+    }
+  })
+
+  // dev 危险操作：清除全部存档（Console 重置按钮）
+  ipcMain.handle(IpcChannels.PersistenceReset, () => {
+    for (const f of ['save.json', 'inputs.jsonl', 'events.jsonl']) {
+      const fp = path.join(saveDir, f)
+      if (existsSync(fp)) rmSync(fp)
     }
   })
 }
