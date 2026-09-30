@@ -26,6 +26,9 @@ importers:
       '@succulent/render':
         specifier: workspace:*
         version: link:../../packages/render
+      '@succulent/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
     devDependencies:
       '@types/node':
         specifier: ^22.15.0

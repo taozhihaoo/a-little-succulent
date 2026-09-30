@@ -11,6 +11,8 @@ export interface OrganPose {
   tilt: number
   /** 方位角（弧度） */
   azimuth: number
+  /** 叶基距中心的偏移（mm） */
+  offset: number
   /** 老化 / 缺水垂头附加量（弧度） */
   droop: number
   /** 纵向卷曲 0~1 */

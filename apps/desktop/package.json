@@ -9,7 +9,8 @@
     "build": "vite build && node scripts/build-main.mjs"
   },
   "dependencies": {
-    "@succulent/render": "workspace:*"
+    "@succulent/render": "workspace:*",
+    "@succulent/sim": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

@@ -5,11 +5,14 @@
 import type { EventSink, EventTier } from '../events'
 import type { Rng } from '../rng'
 import type { InputEvent, PlantState, WorldState } from '../world'
+import { getSpecies } from '../species/registry'
 import { sampleEnv } from '../env'
 
 export interface StepCtx {
   rng: Rng
   emit: EventSink
+  /** 本步起始的 simTime（网格上） */
+  simTime: number
   /** 本步结算的已确认输入（下一个步边界生效，02 §1.3），按 (simTime, seq) 排序 */
   inputs: readonly InputEvent[]
 }
@@ -18,11 +21,10 @@ export interface StepResult {
   eventsEmitted: number
 }
 
-// 占位系数（S2 只关心确定性机器；数值 M1/M3 按 04 调参替换）
+// 占位系数（数值 M1/M3 按 04 调参替换）
 const EVAP_PER_HOUR = 0.1 / 24
 const WATER_AMOUNT = 0.35
 const DAY_MS = 86_400_000
-const MATURE_DAYS = 14
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
@@ -71,13 +73,8 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
       plant.stress.drought = Math.max(0, plant.stress.drought - 0.01 * dtHours)
     }
 
-    // 4) 生长（占位：成熟度推进 + turgor 随水分）
-    for (const leaf of plant.leaves) {
-      if (leaf.droppedSimTime === undefined && leaf.maturity < 1) {
-        leaf.maturity = Math.min(1, leaf.maturity + dtMs / (MATURE_DAYS * DAY_MS))
-      }
-      leaf.turgor = Math.min(1, plant.water * 1.3)
-    }
+    // 4) 生长：委托给物种的生长语法（02 §2.1 步 5；M1 起 echeveria 实现叶生命周期）
+    getSpecies(plant.speciesId).growStep(plant, env, dtMs, ctx)
 
     // 5) 事件检查：确定性阈值跨变（沿）+ 冷却；概率类事件与预算全量实现属 M3/M4
     const low = plant.water < 0.45

@@ -1,0 +1,89 @@
+/** Echeveria 物种定义测试（M1）：确定性 + 生长节律 + 形态学。 */
+import { describe, expect, it } from 'vitest'
+import { createRng } from '../rng'
+import { createEngine, createWorld } from '../engine'
+import { ECHEVERIA, ECHEVERIA_DEFAULT_GENOME } from './echeveria'
+
+const DAY = 86_400_000
+const HOUR = 3_600_000
+const ENV = {
+  placement: 'windowsill',
+  utcOffsetMinutes: 480,
+  hemisphere: 'north',
+} as const
+
+describe('echeveria 基因（04 §3）', () => {
+  it('同 seed ⇒ 同基因组；值都在 0~1', () => {
+    const a = ECHEVERIA.createGenome(createRng('plant-018'))
+    const b = ECHEVERIA.createGenome(createRng('plant-018'))
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+    for (const v of Object.values(a.values)) {
+      expect(v).toBeGreaterThanOrEqual(0)
+      expect(v).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('默认集键与 04 §13 一致', () => {
+    expect(Object.keys(ECHEVERIA_DEFAULT_GENOME).sort()).toEqual(
+      [
+        'baseHue', 'curvature', 'droughtDecay', 'edgeContrast', 'farina', 'gloss',
+        'growthRate', 'leafDensity', 'leafLength', 'leafThickness', 'leafWidth',
+        'openness', 'outerOpen', 'phylloJitter', 'rosetteCompact', 'stressColorPropensity',
+        'stressHue', 'stretchPropensity', 'tipSharpness', 'waterTolerance',
+      ].sort(),
+    )
+  })
+})
+
+describe('echeveria 生长节律（04 §5）', () => {
+  it('30 模拟日内持续出新叶', () => {
+    const world = createWorld('growth-test', 0, ENV)
+    const engine = createEngine({ world })
+    engine.advance(30 * DAY, Number.MAX_SAFE_INTEGER)
+    const alive = world.plants[0]!.leaves.filter((l) => l.droppedSimTime === undefined)
+    expect(alive.length).toBeGreaterThan(3)
+  })
+
+  it('seed 决定形态：两个不同 seed 的 30 天植株形态不同', () => {
+    const shapeOf = (seed: string): string => {
+      const world = createWorld(seed, 0, ENV)
+      const engine = createEngine({ world })
+      engine.advance(30 * DAY, Number.MAX_SAFE_INTEGER)
+      return JSON.stringify(ECHEVERIA.morphology(world.plants[0]!))
+    }
+    expect(shapeOf('plant-a')).not.toBe(shapeOf('plant-b'))
+  })
+})
+
+describe('echeveria 莲座形态学（04 §4.2）', () => {
+  it('最新叶在中心（offset 最小），外圈叶倾角更大', () => {
+    const world = createWorld('morph-test', 0, ENV)
+    const engine = createEngine({ world })
+    engine.advance(20 * DAY, Number.MAX_SAFE_INTEGER)
+    const organs = ECHEVERIA.morphology(world.plants[0]!)
+    expect(organs.length).toBeGreaterThan(2)
+    const newest = organs[organs.length - 1]!
+    const oldest = organs[0]!
+    expect(newest.offset).toBeLessThanOrEqual(oldest.offset)
+    expect(newest.tilt).toBeLessThanOrEqual(oldest.tilt)
+    expect(newest.growth).toBeLessThanOrEqual(oldest.growth)
+  })
+})
+
+describe('快照管线（07 §7 前半）', () => {
+  it('分片推进与连续推进的快照逐字节一致', () => {
+    const snapshotOf = (chunks: readonly number[]): string => {
+      const world = createWorld('snap-test', 0, ENV)
+      const engine = createEngine({ world })
+      let cursor = 0
+      for (const c of chunks) {
+        cursor += c
+        engine.advance(cursor, Number.MAX_SAFE_INTEGER)
+      }
+      return JSON.stringify(engine.latestSnapshot())
+    }
+    const continuous = snapshotOf([10 * DAY])
+    const hourly = snapshotOf(Array.from({ length: 240 }, () => HOUR))
+    expect(hourly).toBe(continuous)
+  })
+})

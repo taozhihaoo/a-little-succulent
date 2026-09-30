@@ -29,6 +29,8 @@ export interface LeafState {
   /** 0~1 应激色量 */
   colorState: number
   damage: number
+  /** 出生时由确定性 RNG 派生的个体随机量（叶序抖动等） */
+  rand: number
   droppedSimTime?: number
 }
 

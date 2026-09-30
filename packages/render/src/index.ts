@@ -1,7 +1,7 @@
 /**
  * render 包骨架（07 §4）。
  * 规则：渲染层只读 PhenotypeSnapshot，永不反推植物状态；画的时机只归 RenderScheduler。
- * 占位场景用于 M0 的 A1/A2（透明窗口 + alpha 边缘检查），M1 才替换为程序化莲座。
+ * M1：占位球退休，场景为 mm 尺度的真实莲座（PlantRenderer）。
  */
 import * as THREE from 'three'
 
@@ -14,40 +14,28 @@ export interface SceneRoot {
   dispose(): void
 }
 
-/** 占位场景：一个"盆 + 绿球"，足够验证透明窗口与 alpha 边缘（05 A1/A2）。 */
+/** 场景骨架：相机/光照按 mm 尺度布置；植物与花盆由 PlantRenderer 提供。 */
 export function createSceneRoot(container: HTMLElement): SceneRoot {
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
   renderer.setClearColor(0x000000, 0)
-  renderer.setPixelRatio(window.devicePixelRatio)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.setSize(container.clientWidth, container.clientHeight, false)
   renderer.domElement.style.width = '100%'
   renderer.domElement.style.height = '100%'
   container.appendChild(renderer.domElement)
 
   const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100)
-  camera.position.set(0, 1.4, 4.2)
-  camera.lookAt(0, 0.5, 0)
+  const camera = new THREE.PerspectiveCamera(40, 1, 1, 2000)
+  camera.position.set(0, 70, 175)
+  camera.lookAt(0, 22, 0)
 
   const key = new THREE.DirectionalLight(0xffffff, 2.4)
-  key.position.set(2, 3, 2.5)
+  key.position.set(120, 180, 150)
   scene.add(key)
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7))
-
-  // 占位"多肉"（M1 由 PlantRenderer 消费 PhenotypeSnapshot 替换）
-  const placeholder = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.85, 2),
-    new THREE.MeshStandardMaterial({ color: 0x7da87b, roughness: 0.55, flatShading: false }),
-  )
-  placeholder.position.y = 1.0
-  scene.add(placeholder)
-
-  const pot = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.75, 0.55, 0.8, 40),
-    new THREE.MeshStandardMaterial({ color: 0xb5654a, roughness: 0.9 }),
-  )
-  pot.position.y = 0.4
-  scene.add(pot)
+  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.6)
+  fill.position.set(-100, 60, -80)
+  scene.add(fill)
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65))
 
   const onResize = () => {
     const w = container.clientWidth
@@ -84,8 +72,8 @@ const AMBIENT_MIN_GAP_MS = 3_000
 const AMBIENT_MAX_GAP_MS = 10_000
 const BURST_MIN_MS = 500
 const BURST_MAX_MS = 2_000
-const SWAY_AMPLITUDE = 0.02
-/** Ambient burst 帧率上限：透明置顶窗口每帧都有 DWM 合成成本，60fps 不划算（A9 实测后加） */
+const SWAY_AMPLITUDE = 0.002
+/** Ambient burst 帧率上限：透明置顶窗口每帧都有 DWM 合成成本（A9 实测后加） */
 const AMBIENT_FRAME_INTERVAL_MS = 1000 / 30
 
 export class RenderScheduler {
@@ -106,7 +94,7 @@ export class RenderScheduler {
       if (this.phase === 'DeepIdle') return
 
       if (this.phase === 'Active') {
-        // TODO(M1): 消费 PhenotypeSnapshot 更新网格与 shader 参数（快照间插值）
+        // TODO(M1 收尾): 仅在快照变化时渲染（on-demand），而非每帧
         this.root.renderer.render(this.root.scene, this.root.camera)
         this.rafId = requestAnimationFrame(this.tick)
         return
@@ -188,7 +176,7 @@ export class RenderScheduler {
 
 /**
  * 命中测试助手（PointerHitResolver 的渲染侧输入，A3）：
- * 屏幕坐标 → 是否命中实体（代理网格 raycast）。穿透切换在 desktop 层做（07 §5）。
+ * 屏幕坐标 → 是否命中实体（raycast）。穿透切换在 desktop 层做（07 §5）。
  */
 export function makeHitTester(root: SceneRoot): (clientX: number, clientY: number) => boolean {
   const raycaster = new THREE.Raycaster()
@@ -207,3 +195,6 @@ export function makeHitTester(root: SceneRoot): (clientX: number, clientY: numbe
     return raycaster.intersectObjects(meshes, false).length > 0
   }
 }
+
+export { buildLeafGeometry, type LeafShapeParams } from './leaf'
+export { PlantRenderer } from './plant'

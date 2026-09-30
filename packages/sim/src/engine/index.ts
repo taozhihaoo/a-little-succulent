@@ -157,7 +157,7 @@ class InProcessSimEngine implements SimEngine {
     // RNG 按步派生：与分片方式无关（连续 / 分片 / 重放得到同一序列，I1）
     const rng: Rng = createRng(`${w.plants[0]?.seed ?? 'world'}|${stepStart}`)
 
-    simulateStep(w, SIM_STEP_MS, { rng, emit: sink, inputs: due })
+    simulateStep(w, SIM_STEP_MS, { rng, emit: sink, simTime: stepStart, inputs: due })
 
     if (due.length > 0) {
       const settled = new Set(due)
@@ -188,7 +188,15 @@ export function createWorld(seed: string, bornSimTime: number, env: EnvConfig): 
     stretch: 0,
     seasonPhase: 0,
     leaves: [
-      { bornSimTime: simTime, ringIndex: 0, maturity: 0.1, turgor: 1, colorState: 0, damage: 0 },
+      {
+        bornSimTime: simTime,
+        ringIndex: 0,
+        maturity: 0.1,
+        turgor: 1,
+        colorState: 0,
+        damage: 0,
+        rand: 0.5,
+      },
     ],
     stems: [{ heightMm: 8, lignification: 0 }],
     counters: {},

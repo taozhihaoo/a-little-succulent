@@ -1,4 +1,14 @@
-import { makeHitTester, RenderScheduler, createSceneRoot } from '@succulent/render'
+import {
+  createEngine,
+  createWorld,
+  type PhenotypeSnapshot,
+} from '@succulent/sim'
+import {
+  createSceneRoot,
+  makeHitTester,
+  PlantRenderer,
+  RenderScheduler,
+} from '@succulent/render'
 import './style.css'
 
 const container = document.getElementById('app')
@@ -9,14 +19,41 @@ const root = createSceneRoot(container)
 const scheduler = new RenderScheduler(root)
 scheduler.start()
 
-// A9：三态接线——指针在窗口内 Active，离开后 Ambient（周期短动画），全屏/最小化时由 main 强制 DeepIdle（A13 接线）
-const settleTimer = setTimeout(() => scheduler.setPhase('Ambient'), 5_000)
-container.addEventListener('pointerenter', () => {
-  clearTimeout(settleTimer)
-  scheduler.setPhase('Active')
+// —— 垂直切片（07 §7）：SimEngine → snapshot → PlantRenderer ——
+// M1 阶段模拟跑在 renderer 主线程（InProcessSimHost，07 §2）；存档/WAL 接线属 M3。
+const DAY = 86_400_000
+const SEED = 'echeveria-001'
+
+const world = createWorld(SEED, Date.now() - 6 * DAY, {
+  placement: 'windowsill',
+  utcOffsetMinutes: -new Date().getTimezoneOffset(),
+  hemisphere: 'north',
 })
-container.addEventListener('pointerleave', () => {
-  if (!dragging) scheduler.setPhase('Ambient')
+const engine = createEngine({ world })
+engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算（约 6 模拟日）
+
+const plantRenderer = new PlantRenderer(root.scene)
+
+function sync(): void {
+  const snapshot: PhenotypeSnapshot = engine.latestSnapshot()
+  plantRenderer.update(snapshot)
+}
+sync()
+
+// 会话内低频推进（02 §1.2）；持久化调度属 M3
+setInterval(() => {
+  engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
+  scheduler.invalidate()
+  sync()
+}, 30_000)
+
+// dev：] = 快进 1 模拟日（正式工具是 Simulation Console，03）
+window.addEventListener('keydown', (e) => {
+  if (e.key === ']') {
+    engine.advance(Date.now() + DAY, Number.MAX_SAFE_INTEGER)
+    sync()
+    console.info('[dev] advanced +1 sim day; leaves =', engine.world.plants[0]?.leaves.length)
+  }
 })
 
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
