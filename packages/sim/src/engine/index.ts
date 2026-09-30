@@ -15,6 +15,7 @@ import {
   SPECIES_VERSION,
   type SaveFile,
 } from '../persist'
+import { getSpecies } from '../species/registry'
 import { simulateStep } from '../step'
 import type { EnvConfig, InputEvent, PlantState, WorldState } from '../world'
 
@@ -174,14 +175,14 @@ export function createEngine(
   return new InProcessSimEngine(opts.world, opts)
 }
 
-/** 世界工厂：出生时刻向下对齐到网格；初始一株一叶（S2 占位）。 */
+/** 世界工厂：出生时刻向下对齐到网格；初始一株一叶；基因组由 seed 派生（I1）。 */
 export function createWorld(seed: string, bornSimTime: number, env: EnvConfig): WorldState {
   const simTime = floorToGrid(bornSimTime)
   const plant: PlantState = {
     id: `plant-${seed}`,
     speciesId: 'echeveria',
     seed,
-    genome: { values: {} }, // TODO(M1)：SpeciesDef.createGenome（04 §3）
+    genome: getSpecies('echeveria').createGenome(createRng(`${seed}|genome`)),
     bornSimTime,
     water: 0.9,
     stress: { light: 0, drought: 0, temp: 0 },

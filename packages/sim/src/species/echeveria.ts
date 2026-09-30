@@ -45,6 +45,40 @@ export const ECHEVERIA_DEFAULT_GENOME: Record<string, number> = {
   droughtDecay: 0.6,
 }
 
+/**
+ * 个体抖动幅度（±，0~1 基因空间）。原则：
+ * 直接决定叶数/轮廓的基因给大方差（growthRate/leafLength/leafDensity），
+ * 色相给宽域（可见的颜色差异），
+ * 观感微调类（phylloJitter/openness）保持中小幅。
+ * 目标：联系表上"扫一眼能分清株与株"（M1 验收线）。
+ */
+const GENE_JITTER: Record<string, number> = {
+  // 叶序
+  leafDensity: 0.30,
+  rosetteCompact: 0.22,
+  outerOpen: 0.28,
+  phylloJitter: 0.10,
+  // 叶形
+  leafLength: 0.28,
+  leafWidth: 0.22,
+  leafThickness: 0.18,
+  curvature: 0.30,
+  tipSharpness: 0.30,
+  openness: 0.25,
+  // 颜色与质感
+  baseHue: 0.50,
+  stressHue: 0.35,
+  farina: 0.30,
+  edgeContrast: 0.30,
+  gloss: 0.30,
+  // 习性（叶数差异的主驱动）
+  growthRate: 0.38,
+  waterTolerance: 0.25,
+  stressColorPropensity: 0.30,
+  stretchPropensity: 0.25,
+  droughtDecay: 0.25,
+}
+
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
@@ -65,7 +99,9 @@ export const ECHEVERIA: SpeciesDef = {
   createGenome(rng: Rng): Genome {
     const values: Record<string, number> = {}
     for (const [name, base] of Object.entries(ECHEVERIA_DEFAULT_GENOME)) {
-      values[name] = clamp01(base + (rng() - 0.5) * 0.12)
+      // 每基因独立抖动幅度（联系表实测 ±6% 全员 13 叶 → 双胞胎，2026-09-30）
+      const amp = GENE_JITTER[name] ?? 0.12
+      values[name] = clamp01(base + (rng() - 0.5) * 2 * amp)
     }
     return { values }
   },
