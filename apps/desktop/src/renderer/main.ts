@@ -35,20 +35,32 @@ const engine = createEngine({ world })
 engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算
 
 const plantRenderer = new PlantRenderer(root.scene, true, scheduler)
-// A/B 验证：预览相位锁（0=晨 1=午 2=昏 3=夜；-1=跟随模拟时间）
-
-root.onFrame = (frameTimeMs) => {
-  plantRenderer.updateEffects(frameTimeMs)
-  if (previewIdx === -1) root.setDayPhase(engine.latestSnapshot().dayPhase)
-
-}
 
 function sync(): void {
   const snapshot: PhenotypeSnapshot = engine.latestSnapshot()
   plantRenderer.update(snapshot)
 }
-
 sync()
+
+// —— dev：昼夜预览与一日延时的互斥状态 ——
+// K = 四相预览锁定（晨/午/昏/夜/回到模拟时间）；L = 一日延时（60 秒播完 24 小时）。
+const DAY_PREVIEW = [0.31, 0.5, 0.69, 0.97]
+let previewIdx = -1
+let lapseActive = false
+let lapseStartMs = 0
+let lapseBasePhase = 0
+const LAPSE_MS = 60000
+
+root.onFrame = (frameTimeMs) => {
+  plantRenderer.updateEffects(frameTimeMs)
+  if (lapseActive) {
+    const t = (performance.now() - lapseStartMs) / LAPSE_MS
+    root.setDayPhase((lapseBasePhase + t) % 1)
+    scheduler.requestFrames(1200) // 滚动续帧：延时渐变平滑不被 Ambient 间隙打断
+  } else if (previewIdx === -1) {
+    root.setDayPhase(engine.latestSnapshot().dayPhase)
+  }
+}
 
 // 会话内低频推进（02 §1.2）；持久化调度属 M3
 setInterval(() => {
@@ -57,10 +69,9 @@ setInterval(() => {
   sync()
 }, 30_000)
 
-// dev：] = 快进 7 模拟日（必出 1~2 片新叶；正式工具是 Simulation Console，03）
-// 注意 1：需先点击植物让窗口获得键盘焦点
-// 注意 2：目标必须是引擎当前 simTime + 7d——用 Date.now() 会在首次快进后全部空转
+// dev：] = 快进 7 模拟日（目标必须是引擎 simTime——用 Date.now() 会在首次快进后空转）
 window.addEventListener('keydown', (e) => {
+  if (!import.meta.env.DEV) return
   if (e.code === 'BracketRight') {
     engine.advance(engine.simTime + 7 * DAY, Number.MAX_SAFE_INTEGER)
     sync()
@@ -79,7 +90,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyC' && e.shiftKey && !exitContactSheet) {
     void import('../dev/contact-sheet').then((m) => {
       exitContactSheet = m.mountContactSheet(root, plantRenderer, bridge)
-      hitTest.rescan() // 网格清单刷新：联系表的 1300+ 网格要参与命中测试
+      hitTest.rescan()
     })
   } else if (e.code === 'Escape' && exitContactSheet) {
     exitContactSheet()
@@ -88,17 +99,33 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-// dev：K 键循环预览晨/午/昏/夜（正式昼夜跟随模拟时间）
-const DAY_PREVIEW = [0.31, 0.5, 0.69, 0.97]
-let previewIdx = -1
+// dev：K = 四相昼夜预览锁定；L = 一日延时。任一激活会取消另一个。
 window.addEventListener('keydown', (e) => {
-  if (!import.meta.env.DEV || e.code !== 'KeyK' || e.shiftKey) return
-  previewIdx = (previewIdx + 1) % (DAY_PREVIEW.length + 1)
-  const phase = previewIdx === DAY_PREVIEW.length ? engine.latestSnapshot().dayPhase : DAY_PREVIEW[previewIdx]!
-  root.setDayPhase(phase)
-  scheduler.invalidate()
-  scheduler.requestFrames(600)
-  console.info('[dev] dayPhase preview =', previewIdx === DAY_PREVIEW.length ? 'sim time' : phase)
+  if (!import.meta.env.DEV) return
+  if (e.code === 'KeyL' && !e.shiftKey) {
+    lapseActive = !lapseActive
+    previewIdx = -1
+    if (lapseActive) {
+      lapseBasePhase = engine.latestSnapshot().dayPhase
+      lapseStartMs = performance.now()
+    }
+    console.info('[dev] day lapse =', lapseActive ? 'ON (60s per day)' : 'OFF')
+    return
+  }
+  if (e.code === 'KeyK' && !e.shiftKey) {
+    lapseActive = false
+    previewIdx = (previewIdx + 1) % (DAY_PREVIEW.length + 1)
+    const phase =
+      previewIdx === DAY_PREVIEW.length ? engine.latestSnapshot().dayPhase : DAY_PREVIEW[previewIdx]!
+    root.setDayPhase(phase)
+    scheduler.invalidate()
+    scheduler.requestFrames(600)
+    console.info(
+      '[dev] dayPhase preview =',
+      previewIdx === DAY_PREVIEW.length ? 'sim time' : phase,
+    )
+    return
+  }
 })
 
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
