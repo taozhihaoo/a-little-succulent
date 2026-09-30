@@ -92,6 +92,8 @@ window.addEventListener('keydown', (e) => {
   previewIdx = (previewIdx + 1) % (DAY_PREVIEW.length + 1)
   const phase = previewIdx === DAY_PREVIEW.length ? engine.latestSnapshot().dayPhase : DAY_PREVIEW[previewIdx]!
   root.setDayPhase(phase)
+  scheduler.invalidate()
+  scheduler.requestFrames(600)
   console.info('[dev] dayPhase preview =', previewIdx === DAY_PREVIEW.length ? 'sim time' : phase)
 })
 
