@@ -157,6 +157,13 @@ ipcMain.on(IpcChannels.SetBounds, (_event, w: unknown, h: unknown) => {
   }
 })
 
+ipcMain.on(IpcChannels.FocusWindow, () => {
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  }
+})
+
 void app.whenReady().then(() => {
   app.on('second-instance', () => win?.show())
   win = createWindow()

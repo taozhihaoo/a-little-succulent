@@ -9,6 +9,8 @@ export const IpcChannels = {
   DragEnd: 'desktop:drag-end',
   /** renderer → main：调整窗口尺寸（联系表等 dev 工具需要大视口） */
   SetBounds: 'desktop:set-bounds',
+  /** renderer → main：窗口抢键盘焦点（K/] 等快捷键依赖焦点） */
+  FocusWindow: 'desktop:focus-window',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -21,4 +23,5 @@ export interface DesktopBridge {
   dragMove(): void
   dragEnd(): void
   setBounds(width: number, height: number): void
+  focusWindow(): void
 }

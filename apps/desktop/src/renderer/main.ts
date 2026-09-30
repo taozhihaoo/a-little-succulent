@@ -119,6 +119,7 @@ container.addEventListener('pointerdown', (e) => {
   if (hitTest(e.clientX, e.clientY)) {
     dragging = true
     bridge.dragStart()
+    bridge.focusWindow()
     container.setPointerCapture(e.pointerId)
   }
 })

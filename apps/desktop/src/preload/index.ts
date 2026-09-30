@@ -18,5 +18,8 @@ const bridge: DesktopBridge = {
   setBounds(width: number, height: number) {
     ipcRenderer.send(IpcChannels.SetBounds, width, height)
   },
+  focusWindow() {
+    ipcRenderer.send(IpcChannels.FocusWindow)
+  },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)
