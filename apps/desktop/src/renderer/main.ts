@@ -207,6 +207,7 @@ let moveQueued = false
 
 container.addEventListener('pointermove', (e) => {
   if (dragging) {
+  if (menuOpen) return
     if (moveQueued) return
     moveQueued = true
     requestAnimationFrame(() => {
@@ -236,5 +237,50 @@ function endDrag(): void {
 
 container.addEventListener('pointerup', endDrag)
 container.addEventListener('pointercancel', endDrag)
+
+// M3 menu: water = first real player input (InputEvent -> WAL)
+let menuOpen = false
+const menu = document.createElement('div')
+menu.className = 'ctx-menu'
+const waterBtn = document.createElement("button")
+waterBtn.textContent = 'water'
+menu.appendChild(waterBtn)
+document.body.appendChild(menu)
+
+function closeMenu(): void {
+  menuOpen = false
+  menu.style.display = 'none'
+}
+
+function waterPlant(): void {
+  if (!engine) return
+  engine.apply({ seq: 0, simTime: engine.simTime, type: 'water' })
+  sync()
+  scheduler.invalidate()
+  checkpoint()
+  plantRenderer.waterBurst(performance.now())
+}
+
+waterBtn.addEventListener('click', () => {
+  waterPlant()
+  closeMenu()
+})
+
+container.addEventListener('contextmenu', (e) => {
+  e.preventDefault()
+  if (!engine || !hitTest(e.clientX, e.clientY)) {
+    closeMenu()
+    return
+  }
+  menuOpen = true
+  menu.style.left = Math.min(e.clientX, window.innerWidth - 140) + "px"
+  menu.style.top = Math.min(e.clientY, window.innerHeight - 60) + "px"
+  menu.style.display = 'block'
+  bridge.setIgnoreMouseEvents(false)
+})
+
+document.addEventListener('pointerdown', (e) => {
+  if (menuOpen && e.target instanceof Node && !menu.contains(e.target)) closeMenu()
+})
 
 console.info('[renderer] up; bridge =', bridge?.version ?? 'none')

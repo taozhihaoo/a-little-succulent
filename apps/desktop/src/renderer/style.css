@@ -10,3 +10,31 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+.ctx-menu {
+  position: fixed;
+  display: none;
+  background: rgba(18, 22, 18, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 120px;
+  z-index: 20;
+}
+
+.ctx-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: #dfe7dd;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.ctx-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
