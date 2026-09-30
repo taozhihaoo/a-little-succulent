@@ -1,7 +1,6 @@
 /**
  * 露珠微事件（总方案 §7.1）：出现又蒸发的小水珠。
- * 挂件模式专用；生命周期动画只发生在 Ambient burst / Active 渲染帧里
- * （scheduler 的 onFrame 回调驱动，不持有自己的 RAF）。
+ * 淡入/蒸发窗口期间通过 requestFrames 向调度器要帧——不再瞬现瞬失。
  */
 import * as THREE from 'three'
 
@@ -10,9 +9,12 @@ interface DewDrop {
   life: number
   pos: THREE.Vector3
   scale: number
+  fading: boolean
 }
 
 const MAX_DEW = 6
+const FADE_IN_MS = 700
+const FADE_OUT_MS = 1500
 
 export class DewLayer {
   readonly group = new THREE.Group()
@@ -20,8 +22,10 @@ export class DewLayer {
   private readonly drops: DewDrop[] = []
   private nextSpawn = 2000
   private readonly dummy = new THREE.Object3D()
+  private readonly requestFrames: ((durationMs: number) => void) | undefined
 
-  constructor(parent: THREE.Object3D) {
+  constructor(parent: THREE.Object3D, requestFrames?: (durationMs: number) => void) {
+    this.requestFrames = requestFrames
     this.mesh = new THREE.InstancedMesh(
       new THREE.SphereGeometry(1, 10, 10),
       new THREE.MeshPhysicalMaterial({
@@ -48,7 +52,7 @@ export class DewLayer {
       return
     }
     if (this.drops.length < MAX_DEW && timeMs >= this.nextSpawn) {
-      this.nextSpawn = timeMs + 6000 + Math.random() * 9000
+      this.nextSpawn = timeMs + 9000 + Math.random() * 12000
       const mesh = leaves[Math.floor(Math.random() * leaves.length)]!
       const local = new THREE.Vector3(
         (Math.random() - 0.5) * 1.1,
@@ -57,10 +61,12 @@ export class DewLayer {
       )
       this.drops.push({
         born: timeMs,
-        life: 14000 + Math.random() * 16000,
+        life: 20000 + Math.random() * 18000,
         pos: mesh.localToWorld(local),
         scale: 0.6 + Math.random() * 0.5,
+        fading: false,
       })
+      this.requestFrames?.(FADE_IN_MS + 400)
     }
     let n = 0
     for (let i = this.drops.length - 1; i >= 0; i--) {
@@ -70,10 +76,15 @@ export class DewLayer {
         this.drops.splice(i, 1)
         continue
       }
-      const fadeIn = Math.min(1, age / 400)
-      const fadeOut = Math.min(1, (d.life - age) / 600)
+      if (!d.fading && age > d.life - FADE_OUT_MS) {
+        d.fading = true
+        this.requestFrames?.(FADE_OUT_MS + 400)
+      }
+      const tIn = Math.min(1, age / FADE_IN_MS)
+      const tOut = Math.min(1, (d.life - age) / FADE_OUT_MS)
+      const eased = tIn * tIn * (3 - 2 * tIn)
       this.dummy.position.copy(d.pos)
-      this.dummy.scale.setScalar(Math.max(0.001, d.scale * fadeIn * fadeOut))
+      this.dummy.scale.setScalar(Math.max(0.001, d.scale * eased * tOut))
       this.dummy.updateMatrix()
       this.mesh.setMatrixAt(n, this.dummy.matrix)
       n++

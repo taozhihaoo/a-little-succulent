@@ -20,6 +20,7 @@ interface LeafVariant {
 export class PlantRenderer {
   readonly group = new THREE.Group()
   readonly dew: DewLayer | undefined
+  private glowDrift?: (timeMs: number) => void
   private readonly leafGroup = new THREE.Group()
   private readonly meshes: THREE.Mesh[] = []
   private readonly variants: LeafVariant[]
@@ -27,7 +28,11 @@ export class PlantRenderer {
   private geometryKey = ''
   private lastOrganCount = -1
 
-  constructor(parent: THREE.Object3D, withDew = true) {
+  constructor(
+    parent: THREE.Object3D,
+    withDew = true,
+    sched?: { requestFrames(durationMs: number): void },
+  ) {
     const base = new THREE.MeshPhysicalMaterial({
       color: 0x7da87b,
       roughness: 0.62,
@@ -46,7 +51,10 @@ export class PlantRenderer {
     ]
     this.material = base
     this.leafUniforms = this.variants[1]!.u
-    if (withDew) this.dew = new DewLayer(this.group)
+    if (withDew) {
+      this.dew = new DewLayer(this.group, sched ? (d) => sched.requestFrames(d) : undefined)
+      this.buildAmbience()
+    }
     parent.add(this.group)
     this.group.add(this.leafGroup)
     this.buildPot()
@@ -67,8 +75,48 @@ export class PlantRenderer {
     this.leafGeometry?.dispose()
   }
 
-  updateDew(timeMs: number): void {
+  private buildAmbience(): void {
+    if (typeof document === 'undefined') return
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const ctx = canvas.getContext('2d')!
+    const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 62)
+    grad.addColorStop(0, 'rgba(255,255,255,0.9)')
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, 128, 128)
+    const tex = new THREE.CanvasTexture(canvas)
+    const sprites: THREE.Sprite[] = []
+    const bases: number[] = []
+    for (let i = 0; i < 3; i++) {
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: tex,
+          color: 0xdfffe9,
+          transparent: true,
+          opacity: 0.09,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      )
+      sprite.scale.set(78 - i * 14, 46 - i * 8, 1)
+      sprite.position.set((i - 1) * 12, SOIL_Y + 30 + i * 4, -4 + i * 3)
+      sprites.push(sprite)
+      bases.push(sprite.position.y)
+      this.group.add(sprite)
+    }
+    this.glowDrift = (timeMs: number) => {
+      sprites.forEach((sp, i) => {
+        sp.position.y = bases[i]! + Math.sin(timeMs / 2600 + i * 2.1) * 3
+        const material = sp.material as THREE.SpriteMaterial
+        material.opacity = 0.06 + 0.04 * (0.5 + 0.5 * Math.sin(timeMs / 3400 + i * 1.7))
+      })
+    }
+  }
+  updateEffects(timeMs: number): void {
     this.dew?.update(timeMs, this.meshes)
+    this.glowDrift?.(timeMs)
   }
 
   /** 花盆（lathe 轮廓）+ 土面 + 矮桩（04 §4.3） */
@@ -99,10 +147,10 @@ export class PlantRenderer {
     this.group.add(soil)
 
     const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.4, 4.6, 4, 12),
+      new THREE.CylinderGeometry(3.4, 4.6, 2, 12),
       new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
     )
-    stem.position.y = SOIL_Y + 3
+    stem.position.y = SOIL_Y + 2.5
     stem.receiveShadow = true
     this.group.add(stem)
   }
@@ -155,7 +203,7 @@ export class PlantRenderer {
     }
 
     const n = snapshot.organs.length
-    const stemTop = SOIL_Y + 5
+    const stemTop = SOIL_Y + 3
     for (let i = 0; i < n; i++) {
       const pose = snapshot.organs[i]!
       const mesh = this.meshes[i]!

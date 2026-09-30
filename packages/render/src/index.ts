@@ -103,6 +103,7 @@ export class RenderScheduler {
   private readonly root: SceneRoot
   private rafId = 0
   private ambientTimer: ReturnType<typeof setTimeout> | undefined
+  private frameRequestUntil = 0
   private burstStart = 0
   private burstUntil = 0
   private burstLastRender = 0
@@ -112,7 +113,14 @@ export class RenderScheduler {
     this.root = root
     this.tick = (timeMs: number) => {
       this.rafId = 0
-      if (this.phase === 'DeepIdle') return
+      if (this.phase === 'DeepIdle') {
+        if (timeMs < this.frameRequestUntil) {
+          this.root.onFrame?.(timeMs)
+          this.root.renderer.render(this.root.scene, this.root.camera)
+          this.rafId = requestAnimationFrame(this.tick)
+        }
+        return
+      }
       this.root.onFrame?.(timeMs)
 
       if (this.phase === 'Active') {
@@ -173,6 +181,16 @@ export class RenderScheduler {
   }
 
   /** 可见状态变化（新叶 / 变色跨档）强制渲染至少 1 帧（02 §4） */
+  requestFrames(durationMs: number): void {
+    this.frameRequestUntil = Math.max(this.frameRequestUntil, performance.now() + durationMs)
+    if (this.phase === 'Ambient') {
+      this.burstUntil = Math.max(this.burstUntil, this.frameRequestUntil)
+      this.ensureRaf()
+    } else if (this.phase === 'DeepIdle') {
+      this.ensureRaf()
+    }
+  }
+
   invalidate(): void {
     if (this.phase === 'DeepIdle') {
       this.root.renderer.render(this.root.scene, this.root.camera)
