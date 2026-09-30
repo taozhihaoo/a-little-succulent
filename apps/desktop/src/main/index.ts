@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, Tray } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { IpcChannels } from '../shared/protocol'
@@ -6,7 +6,12 @@ import { IpcChannels } from '../shared/protocol'
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // TODO(M0)：WindowController / TrayController / PowerMonitor 按职责拆分（07 §5），
-// 随 A7/A8/A12 落地再拆，先保持单文件最小可跑（05 §3）。
+// 随 A7/A8 落地再拆，先保持单文件最小可跑（05 §3）。
+
+// A11：单实例锁——二次启动聚焦已有窗口（开机自启动随设置 UI 落地，默认关：总方案 §52 最少权限）
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+}
 
 let win: BrowserWindow | undefined
 let tray: Tray | undefined
@@ -39,7 +44,7 @@ function createWindow(): BrowserWindow {
   return w
 }
 
-/** A6：托盘（图标为运行时生成的 16×16 纯色位图，正式图标属发布资产） */
+/** A6：托盘（图标为运行时生成的 16×16 纯色位图，正式图标属发布资产；Win11 默认收进溢出区） */
 function createTray(): void {
   const size = 16
   const buf = Buffer.alloc(size * size * 4)
@@ -61,8 +66,8 @@ function createTray(): void {
   tray.on('click', () => win?.show())
 }
 
+// A3：动态穿透——forward 让穿透期间指针事件继续回流，命中检测才能工作
 ipcMain.on(IpcChannels.SetIgnoreMouseEvents, (_event, ignore: unknown) => {
-  // forward: 穿透期间仍把指针事件转发给 renderer，命中检测才能持续工作（A3）
   if (typeof ignore === 'boolean') win?.setIgnoreMouseEvents(ignore, { forward: true })
 })
 
@@ -88,8 +93,14 @@ ipcMain.on(IpcChannels.DragEnd, () => {
 })
 
 void app.whenReady().then(() => {
+  app.on('second-instance', () => win?.show())
   win = createWindow()
   createTray()
+
+  // A12：休眠/唤醒钩子（02 §1.4）——M0 只验证事件可达，时钟补算由 M3 的 SimulationClock 消费
+  powerMonitor.on('suspend', () => console.info('[power] suspend'))
+  powerMonitor.on('resume', () => console.info('[power] resume → 时间增量交由 SimulationClock 补算'))
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) win = createWindow()
   })

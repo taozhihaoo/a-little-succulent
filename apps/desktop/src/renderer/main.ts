@@ -9,6 +9,16 @@ const root = createSceneRoot(container)
 const scheduler = new RenderScheduler(root)
 scheduler.start()
 
+// A9：三态接线——指针在窗口内 Active，离开后 Ambient（周期短动画），全屏/最小化时由 main 强制 DeepIdle（A13 接线）
+const settleTimer = setTimeout(() => scheduler.setPhase('Ambient'), 5_000)
+container.addEventListener('pointerenter', () => {
+  clearTimeout(settleTimer)
+  scheduler.setPhase('Active')
+})
+container.addEventListener('pointerleave', () => {
+  if (!dragging) scheduler.setPhase('Ambient')
+})
+
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
 const hitTest = makeHitTester(root)
 
