@@ -100,8 +100,8 @@ export class PlantRenderer {
           depthWrite: false,
         }),
       )
-      sprite.scale.set(78 - i * 14, 46 - i * 8, 1)
-      sprite.position.set((i - 1) * 12, SOIL_Y + 30 + i * 4, -4 + i * 3)
+      sprite.scale.set(66 - i * 10, 42 - i * 7, 1)
+      sprite.position.set((i - 1) * 9, SOIL_Y + 14 + i * 2, -2 + i * 2)
       sprites.push(sprite)
       bases.push(sprite.position.y)
       this.group.add(sprite)
@@ -110,7 +110,7 @@ export class PlantRenderer {
       sprites.forEach((sp, i) => {
         sp.position.y = bases[i]! + Math.sin(timeMs / 2600 + i * 2.1) * 3
         const material = sp.material as THREE.SpriteMaterial
-        material.opacity = 0.06 + 0.04 * (0.5 + 0.5 * Math.sin(timeMs / 3400 + i * 1.7))
+        material.opacity = 0.045 + 0.035 * (0.5 + 0.5 * Math.sin(timeMs / 3400 + i * 1.7))
       })
     }
   }
