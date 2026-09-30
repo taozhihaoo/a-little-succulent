@@ -35,6 +35,7 @@ const engine = createEngine({ world })
 engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算
 
 const plantRenderer = new PlantRenderer(root.scene)
+root.onFrame = (frameTimeMs) => plantRenderer.updateDew(frameTimeMs)
 
 function sync(): void {
   const snapshot: PhenotypeSnapshot = engine.latestSnapshot()

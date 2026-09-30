@@ -12,6 +12,8 @@ export interface SceneRoot {
   renderer: THREE.WebGLRenderer
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
+  /** 渲染帧回调（Ambient burst / Active 帧内；露珠等微动画驱动） */
+  onFrame?: (timeMs: number) => void
   dispose(): void
 }
 
@@ -111,6 +113,7 @@ export class RenderScheduler {
     this.tick = (timeMs: number) => {
       this.rafId = 0
       if (this.phase === 'DeepIdle') return
+      this.root.onFrame?.(timeMs)
 
       if (this.phase === 'Active') {
         // TODO(M1 收尾): 仅在快照变化时渲染（on-demand），而非每帧
@@ -235,4 +238,5 @@ export function makeHitTester(root: SceneRoot): HitTester {
 
 export { buildLeafGeometry, type LeafShapeParams } from './leaf'
 export { createLeafMaterial, type LeafMaterialUniforms } from './leaf-material'
+export { DewLayer } from './dew'
 export { PlantRenderer } from './plant'

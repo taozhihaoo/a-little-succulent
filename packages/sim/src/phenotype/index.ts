@@ -12,6 +12,11 @@ export interface SnapshotMaterial {
   edgeContrast: number
   /** 0~1 全株应激色强度（外圈老叶权重高；M2 渐变的总量） */
   stressAmount: number
+
+  /** 内圈嫩叶色（0~1 RGB） */
+  youngColor: [number, number, number]
+  /** 外圈深叶色（0~1 RGB） */
+  matureColor: [number, number, number]
 }
 
 export interface SnapshotShape {
@@ -75,6 +80,8 @@ export function derivePhenotype(
     stretch: plant.stretch,
     material: {
       baseColor: hslToRgb(0.28 + 0.17 * g('baseHue'), 0.65, 0.3),
+      youngColor: hslToRgb(0.31 + 0.17 * g('baseHue'), 0.6, 0.44),
+      matureColor: hslToRgb(0.26 + 0.17 * g('baseHue'), 0.72, 0.24),
       stressColor: hslToRgb(0.83 + 0.12 * g('stressHue'), 0.75, 0.55),
       farina: g('farina'),
       gloss: g('gloss'),

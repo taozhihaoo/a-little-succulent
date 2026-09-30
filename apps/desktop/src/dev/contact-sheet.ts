@@ -47,7 +47,7 @@ export function mountContactSheet(
     const engine = createEngine({ world })
     engine.advance(AGE_DAYS * DAY, Number.MAX_SAFE_INTEGER)
 
-    const pr = new PlantRenderer(grid)
+    const pr = new PlantRenderer(grid, false)
     const col = i % COLS
     const row = Math.floor(i / COLS)
     pr.group.position.set((col - (COLS - 1) / 2) * SPACING, 0, (row - (COLS - 1) / 2) * SPACING)
