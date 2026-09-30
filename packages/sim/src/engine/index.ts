@@ -30,7 +30,7 @@ export interface SimEngine {
   advance(targetSimTime: number, maxSteps: number): { done: boolean }
 
   /** 只入队，不立即改状态；下一个步边界结算（02 §1.3） */
-  apply(input: InputEvent): void
+  apply(input: InputEvent, opts?: { skipWal?: boolean }): void
 
   /** 渲染层唯一数据来源（缓存语义：随时可同步读取） */
   latestSnapshot(): PhenotypeSnapshot

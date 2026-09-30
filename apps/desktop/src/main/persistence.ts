@@ -6,7 +6,7 @@
  *   events.jsonl 事件日志（追加；载入时按检查点 eventCount 截断，02 §6.4）
  */
 import { app, ipcMain } from 'electron'
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { IpcChannels } from '../shared/protocol'
 
@@ -54,8 +54,13 @@ export function initPersistence(): void {
       writeFileSync(tmp, saveJson)
       renameSync(tmp, path.join(saveDir, 'save.json'))
       if (typeof newEventLines === 'string' && newEventLines.length > 0) {
+        // 轮转：超 512KB 归档为 events.1.jsonl（保留一代，02 §6.2）
+        const evPath = path.join(saveDir, 'events.jsonl')
+        if (existsSync(evPath) && statSync(evPath).size > 512 * 1024) {
+          renameSync(evPath, path.join(saveDir, 'events.1.jsonl'))
+        }
         appendFileSync(
-          path.join(saveDir, 'events.jsonl'),
+          evPath,
           newEventLines.endsWith('\n') ? newEventLines : newEventLines + '\n',
         )
       }

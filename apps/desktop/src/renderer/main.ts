@@ -5,7 +5,6 @@ import {
   judgeWallDelta,
   parseSave,
   type InputEvent,
-  type InputWal,
   type PhenotypeSnapshot,
   type SimEvent,
 } from '@succulent/sim'
@@ -35,12 +34,10 @@ let engine: ReturnType<typeof createEngine> | null = null
 let flushedEvents = 0
 
 // 输入 WAL：会话内存镜像 + IPC 追加（fire-and-forget，崩溃窗口毫秒级）
-const sessionInputs: InputEvent[] = []
-const ipcWal: InputWal = {
-  append(input) {
-    sessionInputs.push(input)
-    bridge.appendInput(JSON.stringify(input))
-  },
+async function applyInput(input: InputEvent): Promise<void> {
+  // WAL written ahead of state (02 sect 6.4)
+  await bridge.appendInput(JSON.stringify(input))
+  engine?.apply(input, { skipWal: true })
 }
 
 const plantRenderer = new PlantRenderer(root.scene, true, scheduler)
@@ -77,7 +74,6 @@ async function bootSim(): Promise<void> {
           events,
           eventSeq,
           inputSeq: save.inputWalOffset,
-          wal: ipcWal,
         })
         // 墙钟追赶 + 回拨保护（02 §1.2 / §1.4）
         const verdict = judgeWallDelta(save.lastWallSeen, Date.now())
@@ -101,7 +97,6 @@ async function bootSim(): Promise<void> {
       utcOffsetMinutes: -new Date().getTimezoneOffset(),
       hemisphere: 'north',
     }),
-    wal: ipcWal,
   })
   engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
   console.info('[sim] 全新开始')
@@ -252,9 +247,9 @@ function closeMenu(): void {
   menu.style.display = 'none'
 }
 
-function waterPlant(): void {
+async function waterPlant(): Promise<void> {
   if (!engine) return
-  engine.apply({ seq: 0, simTime: engine.simTime, type: '浇水' })
+  await applyInput({ seq: 0, simTime: engine.simTime, type: 'water' })
   sync()
   scheduler.invalidate()
   checkpoint()
