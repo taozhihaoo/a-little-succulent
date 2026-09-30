@@ -243,7 +243,7 @@ let menuOpen = false
 const menu = document.createElement('div')
 menu.className = 'ctx-menu'
 const waterBtn = document.createElement("button")
-waterBtn.textContent = 'water'
+waterBtn.textContent = '浇水'
 menu.appendChild(waterBtn)
 document.body.appendChild(menu)
 
@@ -254,7 +254,7 @@ function closeMenu(): void {
 
 function waterPlant(): void {
   if (!engine) return
-  engine.apply({ seq: 0, simTime: engine.simTime, type: 'water' })
+  engine.apply({ seq: 0, simTime: engine.simTime, type: '浇水' })
   sync()
   scheduler.invalidate()
   checkpoint()
