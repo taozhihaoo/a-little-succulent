@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest'
 import { createEngine, createWorld } from '../engine'
-import { ECHEVERIA } from '../species/echeveria'
 
 const DAY = 86_400_000
 const ENV = { placement: 'windowsill', utcOffsetMinutes: 480, hemisphere: 'north' } as const

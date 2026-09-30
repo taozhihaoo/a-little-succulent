@@ -1,9 +1,41 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, Tray } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { IpcChannels } from '../shared/protocol'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// 窗口位置记忆（轻量实现；M3 存档系统落地后并入 SaveFile.appState.windowBounds）。
+// 无边框透明窗口若每次都落在系统默认位置，被其他窗口盖住时用户"找不到植物"。
+const boundsPath = path.join(app.getPath('userData'), 'window-bounds.json')
+
+function loadBounds(): { x?: number; y?: number } {
+  try {
+    const raw = JSON.parse(readFileSync(boundsPath, 'utf8')) as { x?: number; y?: number }
+    // 防显示器变更后窗口落到屏幕外：钳回可见区域
+    if (typeof raw.x === 'number' && typeof raw.y === 'number') {
+      const onSomeDisplay = screen.getAllDisplays().some((d) => {
+        const { x, y, width, height } = d.workArea
+        return raw.x! >= x - 40 && raw.x! < x + width && raw.y! >= y - 40 && raw.y! < y + height
+      })
+      if (onSomeDisplay) return { x: raw.x, y: raw.y }
+    }
+  } catch {
+    // 首次启动 / 文件损坏：用默认位置
+  }
+  return {}
+}
+
+function saveBounds(win: BrowserWindow): void {
+  try {
+    const [x, y] = win.getPosition()
+    mkdirSync(path.dirname(boundsPath), { recursive: true })
+    writeFileSync(boundsPath, JSON.stringify({ x: x ?? 0, y: y ?? 0 }))
+  } catch {
+    // 写失败不影响运行
+  }
+}
 
 // 关键（02 §4 / A1）：Chromium 的原生窗口遮挡检测会把"被遮挡的透明置顶窗口"误判为
 // 不可见并完全停止合成——桌面挂件会被"永久隐身"。禁用它；资源调度由渲染三态自己负责。
@@ -24,6 +56,7 @@ function createWindow(): BrowserWindow {
   const w = new BrowserWindow({
     width: 380,
     height: 460,
+    ...loadBounds(),
     transparent: true,
     frame: false,
     hasShadow: false,
@@ -40,7 +73,25 @@ function createWindow(): BrowserWindow {
     },
   })
 
-  w.once('ready-to-show', () => w.show())
+  w.once('ready-to-show', () => {
+    w.show()
+    const pos = w.getPosition()
+    console.info(`[main] window shown at (${pos[0]},${pos[1]}) size ${w.getBounds().width}x${w.getBounds().height}`)
+  })
+  // 拖动结束 / 关闭时记忆位置（拖动由 DragMove 高频调用 setPosition，用节流落盘）
+  let saveTimer: NodeJS.Timeout | undefined
+  const scheduleSave = (): void => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = undefined
+      if (!w.isDestroyed()) saveBounds(w)
+    }, 500)
+  }
+  w.on('moved', scheduleSave)
+  w.on('close', () => {
+    if (saveTimer) clearTimeout(saveTimer)
+    if (!w.isDestroyed()) saveBounds(w)
+  })
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (devUrl) {
@@ -97,6 +148,7 @@ ipcMain.on(IpcChannels.DragMove, () => {
 
 ipcMain.on(IpcChannels.DragEnd, () => {
   dragOffset = undefined
+  if (win) saveBounds(win) // 拖动结束立即记忆位置
 })
 
 ipcMain.on(IpcChannels.SetBounds, (_event, w: unknown, h: unknown) => {
