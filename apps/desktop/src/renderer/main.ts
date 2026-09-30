@@ -48,7 +48,7 @@ function sync(): void {
   plantRenderer.update(snapshot)
 }
 
-function checkpoint(): void {
+async function checkpoint(): Promise<void> {
   if (!engine) return
   const save = engine.checkpoint()
   save.lastWallSeen = Date.now()
@@ -56,7 +56,7 @@ function checkpoint(): void {
   const newEvents = engine.events.slice(flushedEvents)
   const payload = newEvents.map((e) => JSON.stringify(e)).join('\n')
   flushedEvents = engine.events.length
-  void bridge.checkpoint(JSON.stringify(save), payload)
+  await bridge.checkpoint(JSON.stringify(save), payload)
 }
 
 /** 02 §6.4 载入流程：检查点 → 截断后的事件前缀 → WAL 重放 → 墙钟追赶 */
@@ -276,6 +276,12 @@ container.addEventListener('contextmenu', (e) => {
 
 document.addEventListener('pointerdown', (e) => {
   if (menuOpen && e.target instanceof Node && !menu.contains(e.target)) closeMenu()
+})
+
+// 退出前落盘（主进程 before-quit 请求）
+bridge.onFlushRequest(async () => {
+  await checkpoint()
+  bridge.sendFlushDone()
 })
 
 console.info('[renderer] up; bridge =', bridge?.version ?? 'none')

@@ -180,6 +180,19 @@ void app.whenReady().then(() => {
   })
 })
 
+// 退出前通知 renderer 落盘（02 $6.2）；2s 兜底强退
+let flushRequested = false
+app.on('before-quit', (e) => {
+  if (flushRequested || !win || win.isDestroyed()) return
+  e.preventDefault()
+  flushRequested = true
+  win.webContents.send('app:flush-request')
+  setTimeout(() => app.exit(0), 2000)
+})
+ipcMain.once('app:flush-done', () => {
+  if (flushRequested) app.exit(0)
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })

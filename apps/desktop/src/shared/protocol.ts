@@ -17,6 +17,10 @@ export const IpcChannels = {
   PersistenceCheckpoint: 'persistence:checkpoint',
   /** renderer → main：输入 WAL 追加（预写日志） */
   PersistenceAppendInput: 'persistence:append-input',
+  /** main -> renderer: flush request before quit */
+  AppFlushRequest: 'app:flush-request',
+  /** renderer -> main: flush done */
+  AppFlushDone: 'app:flush-done',
   /** renderer → main：清除全部存档文件（dev 危险操作） */
   PersistenceReset: 'persistence:reset',
 } as const
@@ -42,5 +46,7 @@ export interface DesktopBridge {
   loadSave(): Promise<SavePayload>
   checkpoint(saveJson: string, newEventLines: string): Promise<void>
   appendInput(line: string): void
+  onFlushRequest(cb: () => void): void
+  sendFlushDone(): void
   resetSave(): Promise<void>
 }

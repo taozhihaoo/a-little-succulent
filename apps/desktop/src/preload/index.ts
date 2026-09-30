@@ -30,6 +30,12 @@ const bridge: DesktopBridge = {
   appendInput(line: string) {
     ipcRenderer.send(IpcChannels.PersistenceAppendInput, line)
   },
+  onFlushRequest(cb: () => void) {
+    ipcRenderer.on(IpcChannels.AppFlushRequest, () => cb())
+  },
+  sendFlushDone() {
+    ipcRenderer.send(IpcChannels.AppFlushDone)
+  },
   async resetSave() {
     await ipcRenderer.invoke(IpcChannels.PersistenceReset)
   },
