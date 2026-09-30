@@ -6,6 +6,8 @@ import type { EventSink, EventTier } from '../events'
 import type { Rng } from '../rng'
 import type { InputEvent, PlantState, WorldState } from '../world'
 import { getSpecies } from '../species/registry'
+import { ECHEVERIA_SIGNS } from '../species/echeveria'
+import { stepSigns } from '../signs'
 import { sampleEnv } from '../env'
 
 export interface StepCtx {
@@ -30,6 +32,18 @@ function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
+/** 事件预算（02 §2.4）：tier 每日上限，计数器随存档持久化 → 重放天然一致 */
+const TIER_DAILY_CAP: Record<EventTier, number> = { micro: 12, growth: 6, major: 1 }
+
+function budgetAllow(plant: PlantState, tier: EventTier, simTime: number): boolean {
+  const day = Math.floor(simTime / DAY_MS)
+  const key = `budget:${tier}:${day}`
+  const used = plant.counters[key] ?? 0
+  if (used >= TIER_DAILY_CAP[tier]) return false
+  plant.counters[key] = used + 1
+  return true
+}
+
 /** 事件冷却（02 §2.4）：计数器存在 plant.counters，随存档持久化 → 重放天然一致 */
 function tryEmit(
   plant: PlantState,
@@ -42,6 +56,7 @@ function tryEmit(
   const key = `cool:${kind}`
   const last = plant.counters[key]
   if (last !== undefined && simTime - last < cooldownMs) return false
+  if (!budgetAllow(plant, tier, simTime)) return false
   plant.counters[key] = simTime
   emit({ simTime, plantId: plant.id, kind, tier })
   return true
@@ -75,6 +90,9 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
 
     // 4) 生长：委托给物种的生长语法（02 §2.1 步 5；M1 起 echeveria 实现叶生命周期）
     getSpecies(plant.speciesId).growStep(plant, env, dtMs, ctx)
+
+    // 5) 迹象生命周期（M4 任务 7）：条件积分 → 相位推进 → 预算化事件
+    stepSigns(plant, ECHEVERIA_SIGNS, env, dtMs, stepEnd, budgetAllow, ctx.emit)
 
     // 5) 事件检查：确定性阈值跨变（沿）+ 冷却；概率类事件与预算全量实现属 M3/M4
     const low = plant.water < 0.45

@@ -124,15 +124,21 @@ describe('徒长机制（04 §6）', () => {
 
 describe('迹象系统（M4 任务 7）', () => {
   it('缺水挣扎：强度爬升、相位推进、迹象事件入流', () => {
+    // 持续干旱下迹象会循环：发生→余韵→归档→重新萌芽（持续示警语义）
     const world = createWorld('sign-test', 0, ENV)
     const engine = createEngine({ world })
-    engine.advance(30 * DAY, Number.MAX_SAFE_INTEGER)
+    engine.advance(10 * DAY, Number.MAX_SAFE_INTEGER)
     const sign = world.plants[0]!.signs?.find((s) => s.id === 'droughtStruggle')
     expect(sign).toBeDefined()
     expect(sign!.strength).toBeGreaterThan(0.2)
     expect(['signal', 'developing', 'critical', 'occurred', 'afterglow']).toContain(sign!.phase)
     const kinds = engine.events.map((e) => e.kind)
     expect(kinds.some((k) => k.startsWith('sign.droughtStruggle'))).toBe(true)
+
+    // 30 天：至少两轮迹象循环（持续受旱持续示警）
+    engine.advance(30 * DAY, Number.MAX_SAFE_INTEGER)
+    const cycles = engine.events.filter((e) => e.kind === 'sign.droughtStruggle.occurred').length
+    expect(cycles).toBeGreaterThanOrEqual(2)
   })
 
   it('事件预算：tier 每日上限生效（major 每日 1）', () => {
