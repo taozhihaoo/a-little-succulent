@@ -1,0 +1,26 @@
+{
+  "name": "a-little-succulent",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p packages/sim/tsconfig.json && tsc --noEmit -p packages/render/tsconfig.json && tsc --noEmit -p apps/desktop/tsconfig.web.json && tsc --noEmit -p apps/desktop/tsconfig.node.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "dev": "pnpm --filter @succulent/desktop dev",
+    "build": "pnpm --filter @succulent/desktop build"
+  },
+  "devDependencies": {
+    "eslint": "^9.30.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^3.2.0"
+  }
+}

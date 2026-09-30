@@ -1,0 +1,16 @@
+{
+  "name": "@succulent/render",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@succulent/sim": "workspace:*",
+    "@types/three": "^0.170.0"
+  }
+}
