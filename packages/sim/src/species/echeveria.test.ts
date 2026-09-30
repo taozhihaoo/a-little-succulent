@@ -86,4 +86,22 @@ describe('快照管线（07 §7 前半）', () => {
     const hourly = snapshotOf(Array.from({ length: 240 }, () => HOUR))
     expect(hourly).toBe(continuous)
   })
+
+  it('全苗龄段快照数值有限（NaN 防线：含 n=1 幼苗期与老龄化）', () => {
+    for (const ageDays of [0.5, 2, 6, 13, 45, 90, 200, 400]) {
+      const world = createWorld('finite-test', 0, ENV)
+      const engine = createEngine({ world })
+      engine.advance(ageDays * DAY, Number.MAX_SAFE_INTEGER)
+      const snap = engine.latestSnapshot()
+      const fields = [
+        snap.water, snap.stretch,
+        ...snap.organs.flatMap((o) => [
+          o.tilt, o.azimuth, o.offset, o.droop, o.curl, o.growth, o.length, o.width, o.thickness,
+        ]),
+      ]
+      for (const v of fields) {
+        expect(Number.isFinite(v), `age=${ageDays} 值 ${v}`).toBe(true)
+      }
+    }
+  })
 })
