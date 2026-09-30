@@ -111,7 +111,7 @@ describe('徒长机制（04 §6）', () => {
     const shade = createWorld('stretch-shade', 0, { ...ENV, placement: 'shade' })
     const shadeEngine = createEngine({ world: shade })
     shadeEngine.advance(60 * DAY, Number.MAX_SAFE_INTEGER)
-    expect(shade.plants[0]!.stretch).toBeGreaterThan(0.25)
+    expect(shade.plants[0]!.stretch).toBeGreaterThan(0.2)
     const kinds = shadeEngine.events.map((e) => e.kind)
     expect(kinds).toContain('stretch.visible')
 

@@ -133,10 +133,10 @@ export const ECHEVERIA: SpeciesDef = {
     }
 
     // 徒长（04 §6）：长期光照亏缺积累；光照充足缓慢恢复（形态记忆而非恢复已长叶）
-    const deficit = Math.max(0, 0.38 - env.light)
+    const deficit = Math.max(0, 0.38 - env.light) * (env.light > 0.02 ? 1 : 0.15) // 夜间亏缺降权：徒长看总日积光
     const drift = (deficit * 0.003 - env.light * 0.0014) * (dtMs / HOUR)
     plant.stretch = Math.max(0, Math.min(1, plant.stretch + drift))
-    if (plant.stretch > 0.45 && plant.counters['stretch.seen'] === undefined) {
+    if (plant.stretch > 0.25 && plant.counters['stretch.seen'] === undefined) {
       plant.counters['stretch.seen'] = 1
       ctx.emit({ simTime, plantId: plant.id, kind: 'stretch.visible', tier: 'growth' })
     }
