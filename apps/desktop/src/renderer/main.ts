@@ -32,7 +32,7 @@ const world = createWorld(SEED, Date.now() - INITIAL_AGE_DAYS * DAY, {
   hemisphere: 'north',
 })
 const engine = createEngine({ world })
-engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算（约 6 模拟日）
+engine.advance(Date.now(), Number.MAX_SAFE_INTEGER) // 启动补算
 
 const plantRenderer = new PlantRenderer(root.scene)
 
@@ -50,14 +50,17 @@ setInterval(() => {
 }, 30_000)
 
 // dev：] = 快进 7 模拟日（必出 1~2 片新叶；正式工具是 Simulation Console，03）
-// 注意：需先点击植物让窗口获得键盘焦点
+// 注意 1：需先点击植物让窗口获得键盘焦点
+// 注意 2：目标必须是引擎当前 simTime + 7d——用 Date.now() 会在首次快进后全部空转
 window.addEventListener('keydown', (e) => {
   if (e.code === 'BracketRight') {
-    engine.advance(Date.now() + 7 * DAY, Number.MAX_SAFE_INTEGER)
+    engine.advance(engine.simTime + 7 * DAY, Number.MAX_SAFE_INTEGER)
     sync()
     scheduler.invalidate()
-    const alive = engine.world.plants[0]?.leaves.filter((l) => l.droppedSimTime === undefined).length
-    console.info('[dev] +7 模拟日; alive leaves =', alive)
+    const plant = engine.world.plants[0]
+    const alive = plant?.leaves.filter((l) => l.droppedSimTime === undefined).length ?? 0
+    const ageDays = Math.round((engine.simTime - (plant?.bornSimTime ?? 0)) / DAY)
+    console.info(`[dev] +7d; plant age = ${ageDays}d, alive leaves = ${alive}`)
   }
 })
 
