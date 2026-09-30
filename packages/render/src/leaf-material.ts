@@ -81,7 +81,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
         [
           'float backlight = pow(clamp(dot(normalize(vViewPosition), -uKeyDir), 0.0, 1.0), 3.0);',
           'float thickness = mix(1.0, 0.25, vT);',
-          'float breathe = 0.82 + 0.18 * sin(uTime * 0.0006283);',
+          'float breathe = 0.78 + 0.22 * sin(uTime * 0.0015708);',
           'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * breathe * 2.6;',
           'gl_FragColor.rgb += transmitted * (0.5 + 0.5 * vC);',
           '#include <dithering_fragment>',
@@ -93,7 +93,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
   material.onBeforeRender = (_renderer, _scene, camera) => {
     uniforms.uKeyDir.value.copy(sunState.dir).transformDirection(camera.matrixWorldInverse)
     uniforms.uKeyColor.value.copy(sunState.color)
-    uniforms.uTime.value = performance.now() % 10000
+    uniforms.uTime.value = performance.now() % 4000
   }
 
   return uniforms
