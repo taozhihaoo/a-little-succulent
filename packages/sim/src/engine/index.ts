@@ -189,15 +189,15 @@ export function createWorld(seed: string, bornSimTime: number, env: EnvConfig): 
     stretch: 0,
     seasonPhase: 0,
     leaves: [
-      {
-        bornSimTime: simTime,
+      ...[0.9, 0.75, 0.6, 0.45, 0.3].map((maturity, i) => ({
+        bornSimTime: simTime - (5 - i) * 4 * 86_400_000,
         ringIndex: 0,
-        maturity: 0.1,
+        maturity,
         turgor: 1,
         colorState: 0,
         damage: 0,
-        rand: 0.5,
-      },
+        rand: 0.2 + i * 0.15,
+      })),
     ],
     stems: [{ heightMm: 8, lignification: 0 }],
     counters: {},

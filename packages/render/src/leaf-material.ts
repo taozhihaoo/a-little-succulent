@@ -67,8 +67,8 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
         '#include <color_fragment>',
         [
           '#include <color_fragment>',
-          'float stressMask = uStressAmount * pow(vT, 1.6) * (0.35 + 0.65 * vC);',
-          'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.85));',
+          'float stressMask = uStressAmount * pow(vT, 2.2) * (0.25 + 0.75 * vC);',
+          'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.6));',
         ].join('\n'),
       )
       .replace(

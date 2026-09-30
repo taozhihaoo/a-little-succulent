@@ -35,7 +35,7 @@ export function buildLeafGeometry(params: LeafShapeParams): THREE.BufferGeometry
       const u = (i / WIDTH_SEGMENTS) * 2 - 1
       const x = u * 0.5 * taper
       const lens = Math.sqrt(Math.max(0, 1 - u * u))
-      const thickness = taper * (0.55 + 0.45 * (1 - v)) * (0.5 + 0.5 * openness)
+      const thickness = taper * (0.65 + 0.35 * (1 - v)) * (0.7 + 0.3 * openness)
       const z = lens * thickness * 0.5 + bend
       positions.push(x, v, z)
       aT.push(v)

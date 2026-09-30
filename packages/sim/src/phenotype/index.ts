@@ -64,6 +64,9 @@ export function derivePhenotype(
     weightSum += w
   }
   const stressAmount = weightSum > 0 ? Math.min(1, weighted / weightSum) : 0
+  // 基因红边晕：绚丽的底色，不依赖应激（真实拟石莲的粉边是天生）
+  const blush = g('edgeContrast') * 0.3
+  const stressWithBlush = Math.min(1, stressAmount + blush)
   return {
     plantId: plant.id,
     simTime,
@@ -71,12 +74,12 @@ export function derivePhenotype(
     water: plant.water,
     stretch: plant.stretch,
     material: {
-      baseColor: hslToRgb(0.28 + 0.17 * g('baseHue'), 0.48, 0.42),
-      stressColor: hslToRgb(0.83 + 0.12 * g('stressHue'), 0.55, 0.6),
+      baseColor: hslToRgb(0.28 + 0.17 * g('baseHue'), 0.65, 0.3),
+      stressColor: hslToRgb(0.83 + 0.12 * g('stressHue'), 0.75, 0.55),
       farina: g('farina'),
       gloss: g('gloss'),
       edgeContrast: g('edgeContrast'),
-      stressAmount,
+      stressAmount: stressWithBlush,
     },
     shape: { tipSharpness: g('tipSharpness'), openness: g('openness'), curvature: g('curvature') },
     organs: species.morphology(plant),

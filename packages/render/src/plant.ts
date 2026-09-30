@@ -84,13 +84,13 @@ export class PlantRenderer {
   update(snapshot: PhenotypeSnapshot): void {
     const { material, shape } = snapshot
 
-    const fr = material.farina * 0.3
+    const fr = material.farina * 0.15
     const mixTo = (a: number, b: number): number => a + (b - a) * fr
-    this.material.color.setRGB(mixTo(material.baseColor[0]!, 0.92), mixTo(material.baseColor[1]!, 0.94), mixTo(material.baseColor[2]!, 0.9))
-    this.material.roughness = Math.min(1, 0.78 - 0.3 * material.gloss + (1 - snapshot.water) * 0.15)
-    this.material.sheen = 0.1 + 0.25 * material.farina
-    this.material.clearcoat = 0.15 + 0.35 * material.gloss
-    this.material.clearcoatRoughness = 0.35 + 0.3 * (1 - snapshot.water)
+    this.material.color.setRGB(mixTo(material.baseColor[0]!, 0.88), mixTo(material.baseColor[1]!, 0.92), mixTo(material.baseColor[2]!, 0.86))
+    this.material.roughness = Math.min(1, 0.62 - 0.25 * material.gloss + (1 - snapshot.water) * 0.12)
+    this.material.sheen = 0.08 + 0.15 * material.farina
+    this.material.clearcoat = 0.2 + 0.4 * material.gloss
+    this.material.clearcoatRoughness = 0.5 + 0.2 * (1 - snapshot.water)
     this.leafUniforms.uStressColor.value.setRGB(material.stressColor[0]!, material.stressColor[1]!, material.stressColor[2]!)
     this.leafUniforms.uStressAmount.value = material.stressAmount
     this.leafUniforms.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
