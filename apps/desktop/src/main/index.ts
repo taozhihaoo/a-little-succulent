@@ -5,6 +5,10 @@ import { IpcChannels } from '../shared/protocol'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// 关键（02 §4 / A1）：Chromium 的原生窗口遮挡检测会把"被遮挡的透明置顶窗口"误判为
+// 不可见并完全停止合成——桌面挂件会被"永久隐身"。禁用它；资源调度由渲染三态自己负责。
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+
 // TODO(M0)：WindowController / TrayController / PowerMonitor 按职责拆分（07 §5），
 // 随 A7/A8 落地再拆，先保持单文件最小可跑（05 §3）。
 
@@ -30,6 +34,9 @@ function createWindow(): BrowserWindow {
       preload: path.join(dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // 关键（02 §4）：挂件被完全遮挡时 Chromium 会冻结 RAF，窗口将永远透明不可见。
+      // 资源调度由渲染三态状态机自己负责，不交给浏览器的遮挡启发式。
+      backgroundThrottling: false,
     },
   })
 

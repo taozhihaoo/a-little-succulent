@@ -121,11 +121,16 @@ export class RenderScheduler {
   }
 
   start(): void {
-    this.setPhase('Active')
+    // 注意：不走 setPhase——phase 初始值就是 'Active'，会命中"同相位"短路导致 RAF 永不启动
+    this.phase = 'Active'
+    this.ensureRaf()
   }
 
   setPhase(phase: RenderPhase): void {
-    if (phase === this.phase) return
+    if (phase === this.phase) {
+      if (phase === 'Active') this.ensureRaf()
+      return
+    }
     this.phase = phase
     if (this.ambientTimer !== undefined) {
       clearTimeout(this.ambientTimer)

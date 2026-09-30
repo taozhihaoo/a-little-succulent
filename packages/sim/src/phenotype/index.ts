@@ -15,6 +15,7 @@ export interface SnapshotMaterial {
 export interface SnapshotShape {
   tipSharpness: number
   openness: number
+  curvature: number
 }
 
 export interface PhenotypeSnapshot {
@@ -64,7 +65,7 @@ export function derivePhenotype(
       gloss: g('gloss'),
       edgeContrast: g('edgeContrast'),
     },
-    shape: { tipSharpness: g('tipSharpness'), openness: g('openness') },
+    shape: { tipSharpness: g('tipSharpness'), openness: g('openness'), curvature: g('curvature') },
     organs: species.morphology(plant),
   }
 }

@@ -4,7 +4,7 @@
  */
 import * as THREE from 'three'
 import type { PhenotypeSnapshot } from '@succulent/sim'
-import { buildLeafGeometry, type LeafShapeParams } from './leaf'
+import { buildLeafGeometry } from './leaf'
 
 const SOIL_Y = 4
 
@@ -71,10 +71,10 @@ export class PlantRenderer {
     this.material.roughness = Math.min(1, 0.78 - 0.3 * material.gloss + (1 - snapshot.water) * 0.15)
     this.material.sheen = 0.15 + 0.6 * material.farina
 
-    const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}`
+    const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`
     if (this.leafGeometry === undefined || key !== this.geometryKey) {
       this.leafGeometry?.dispose()
-      this.leafGeometry = buildLeafGeometry(shape as LeafShapeParams)
+      this.leafGeometry = buildLeafGeometry(shape)
       this.geometryKey = key
     }
 
