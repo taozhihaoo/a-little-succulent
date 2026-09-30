@@ -20,6 +20,8 @@ export interface LeafMaterialUniforms {
   uStressAmount: { value: number }
   /** 背光透光强度 0~1 */
   uTranslucency: { value: number }
+  uSparkle: { value: number }
+  uLightTint: { value: THREE.Color }
   uTime: { value: number }
 }
 
@@ -32,6 +34,8 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
     uStressColor: { value: new THREE.Color(0xd46a7a) },
     uStressAmount: { value: 0 },
     uTranslucency: { value: 0.55 },
+    uSparkle: { value: 1 },
+    uLightTint: { value: new THREE.Color(1, 1, 1) },
     uTime: { value: 0 },
   }
 
@@ -41,16 +45,18 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
     shader.uniforms.uStressColor = uniforms.uStressColor
     shader.uniforms.uStressAmount = uniforms.uStressAmount
     shader.uniforms.uTranslucency = uniforms.uTranslucency
+    shader.uniforms.uSparkle = uniforms.uSparkle
+    shader.uniforms.uLightTint = uniforms.uLightTint
     shader.uniforms.uTime = uniforms.uTime
 
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
-        '#include <common>\nattribute float aT;\nattribute float aC;\nvarying float vT;\nvarying float vC;',
+        '#include <common>\nattribute float aT;\nattribute float aC;\nvarying float vT;\n\nvarying vec3 vWPos;varying float vC;',
       )
       .replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\nvT = aT;\nvC = aC;',
+        '#include <begin_vertex>\nvT = aT;\n\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;vC = aC;',
       )
 
     shader.fragmentShader = shader.fragmentShader
@@ -63,9 +69,12 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
           'uniform vec3 uKeyDir;',
           'uniform vec3 uKeyColor;',
           'uniform float uTranslucency;',
-          'uniform float uTime;',
           'varying float vT;',
           'varying float vC;',
+          'varying vec3 vWPos;',
+          'uniform float uTime;',
+          'uniform float uSparkle;',
+          'uniform vec3 uLightTint;',
         ].join('\n'),
       )
       .replace(
@@ -79,6 +88,15 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
       .replace(
         '#include <dithering_fragment>',
         [
+          'vec3 vNrm = normalize(vNormal);',
+          'vec3 keyDirN = normalize(uKeyDir);',
+          'float glintCell = fract(sin(dot(floor(vWPos.xz * 2.5 + vWPos.y * 1.7), vec2(127.1, 311.7))) * 43758.5453);',
+          'float twinkle = 0.5 + 0.5 * sin(uTime * 0.0015 + glintCell * 6.2832);',
+          'float faceKey = pow(clamp(dot(vNrm, keyDirN), 0.0, 1.0), 6.0);',
+          'float glint = step(0.9, glintCell) * twinkle * faceKey * uSparkle;',
+          'gl_FragColor.rgb += glint * 0.22 * vec3(1.0, 0.98, 0.92);',
+          'float fres = pow(1.0 - clamp(abs(dot(vNrm, normalize(vViewPosition))), 0.0, 1.0), 2.5);',
+          'gl_FragColor.rgb += uLightTint * fres * 0.4;',
           'float backlight = pow(clamp(dot(normalize(vViewPosition), -uKeyDir), 0.0, 1.0), 3.0);',
           'float thickness = mix(1.0, 0.25, vT);',
           'float breathe = 0.78 + 0.22 * sin(uTime * 0.0015708);',
@@ -93,6 +111,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
   material.onBeforeRender = (_renderer, _scene, camera) => {
     uniforms.uKeyDir.value.copy(sunState.dir).transformDirection(camera.matrixWorldInverse)
     uniforms.uKeyColor.value.copy(sunState.color)
+    uniforms.uLightTint.value.copy(sunState.tint)
     uniforms.uTime.value = performance.now() % 4000
   }
 

@@ -96,6 +96,12 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
     fill.color.setRGB(0.83 - 0.17 * night, 0.91 - 0.19 * night, 1)
     ambient.color.setRGB(0.75 - 0.13 * night, 0.82 - 0.17 * night, 1)
     sunState.dir.set(az * 0.65, 0.2 + 0.7 * dl, 0.48).normalize()
+    // leaf rim tint per phase
+    sunState.tint.setRGB(
+      0.95 * wDay + 1.0 * wDusk + 0.62 * wNight,
+      0.92 * wDay + 0.62 * wDusk + 0.56 * wNight,
+      0.85 * wDay + 0.3 * wDusk + 1.0 * wNight,
+    )
   }
 
   return {

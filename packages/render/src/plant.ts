@@ -220,6 +220,7 @@ export class PlantRenderer {
         material.stressColor[2]!,
       )
       v.u.uStressAmount.value = Math.min(1, material.stressAmount * v.stressMul)
+      v.u.uSparkle.value = 0.4 + 0.6 * material.farina
       v.u.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
     })
 
