@@ -20,6 +20,7 @@ export interface LeafMaterialUniforms {
   uStressAmount: { value: number }
   /** 背光透光强度 0~1 */
   uTranslucency: { value: number }
+  uTime: { value: number }
 }
 
 
@@ -31,6 +32,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
     uStressColor: { value: new THREE.Color(0xd46a7a) },
     uStressAmount: { value: 0 },
     uTranslucency: { value: 0.55 },
+    uTime: { value: 0 },
   }
 
   material.onBeforeCompile = (shader) => {
@@ -39,6 +41,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
     shader.uniforms.uStressColor = uniforms.uStressColor
     shader.uniforms.uStressAmount = uniforms.uStressAmount
     shader.uniforms.uTranslucency = uniforms.uTranslucency
+    shader.uniforms.uTime = uniforms.uTime
 
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -60,6 +63,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
           'uniform vec3 uKeyDir;',
           'uniform vec3 uKeyColor;',
           'uniform float uTranslucency;',
+          'uniform float uTime;',
           'varying float vT;',
           'varying float vC;',
         ].join('\n'),
@@ -77,7 +81,8 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
         [
           'float backlight = pow(clamp(dot(normalize(vViewPosition), -uKeyDir), 0.0, 1.0), 3.0);',
           'float thickness = mix(1.0, 0.25, vT);',
-          'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * 2.6;',
+          'float breathe = 0.82 + 0.18 * sin(uTime * 0.0006283);',
+          'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * breathe * 2.6;',
           'gl_FragColor.rgb += transmitted * (0.5 + 0.5 * vC);',
           '#include <dithering_fragment>',
         ].join('\n'),
@@ -88,6 +93,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
   material.onBeforeRender = (_renderer, _scene, camera) => {
     uniforms.uKeyDir.value.copy(sunState.dir).transformDirection(camera.matrixWorldInverse)
     uniforms.uKeyColor.value.copy(sunState.color)
+    uniforms.uTime.value = performance.now() % 10000
   }
 
   return uniforms
