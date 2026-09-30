@@ -7,7 +7,6 @@ import {
   type InputEvent,
   type InputWal,
   type PhenotypeSnapshot,
-  type SimEngine,
   type SimEvent,
 } from '@succulent/sim'
 import {

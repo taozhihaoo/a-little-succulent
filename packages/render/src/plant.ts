@@ -22,6 +22,9 @@ export class PlantRenderer {
   readonly dew: DewLayer | undefined
   private glowDrift?: (timeMs: number) => void
   private readonly leafGroup = new THREE.Group()
+  private soilMaterial: THREE.MeshStandardMaterial | undefined
+  private readonly waterDrops: { mesh: THREE.Mesh; born: number; y0: number; x: number; z: number }[] = []
+  private waterFxUntil = 0
   private readonly meshes: THREE.Mesh[] = []
   private readonly variants: LeafVariant[]
   private leafGeometry: THREE.BufferGeometry | undefined
@@ -144,6 +147,7 @@ export class PlantRenderer {
     )
     soil.position.y = SOIL_Y + 1
     soil.receiveShadow = true
+    this.soilMaterial = soil.material as THREE.MeshStandardMaterial
     this.group.add(soil)
 
     const stem = new THREE.Mesh(
@@ -191,6 +195,14 @@ export class PlantRenderer {
       v.u.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
     })
 
+    if (this.soilMaterial) {
+      // 湿度联动土面：湿则深、干则浅（04 §6）
+      this.soilMaterial.color.setRGB(
+        0.16 + 0.13 * snapshot.water,
+        0.13 + 0.1 * snapshot.water,
+        0.09 + 0.07 * snapshot.water,
+      )
+    }
     const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`
     if (this.leafGeometry === undefined || key !== this.geometryKey) {
       this.leafGeometry?.dispose()
