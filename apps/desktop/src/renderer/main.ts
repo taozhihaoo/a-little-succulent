@@ -49,12 +49,15 @@ setInterval(() => {
   sync()
 }, 30_000)
 
-// dev：] = 快进 1 模拟日（正式工具是 Simulation Console，03）
+// dev：] = 快进 7 模拟日（必出 1~2 片新叶；正式工具是 Simulation Console，03）
+// 注意：需先点击植物让窗口获得键盘焦点
 window.addEventListener('keydown', (e) => {
-  if (e.key === ']') {
-    engine.advance(Date.now() + DAY, Number.MAX_SAFE_INTEGER)
+  if (e.code === 'BracketRight') {
+    engine.advance(Date.now() + 7 * DAY, Number.MAX_SAFE_INTEGER)
     sync()
-    console.info('[dev] advanced +1 sim day; leaves =', engine.world.plants[0]?.leaves.length)
+    scheduler.invalidate()
+    const alive = engine.world.plants[0]?.leaves.filter((l) => l.droppedSimTime === undefined).length
+    console.info('[dev] +7 模拟日; alive leaves =', alive)
   }
 })
 
