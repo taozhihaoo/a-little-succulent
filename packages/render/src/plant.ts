@@ -50,42 +50,45 @@ export class PlantRenderer {
     const terracotta = new THREE.MeshStandardMaterial({ color: 0xb5654a, roughness: 0.9 })
     const profile = [
       new THREE.Vector2(0.1, -46),
-      new THREE.Vector2(20, -44),
-      new THREE.Vector2(27, -36),
-      new THREE.Vector2(31, -14),
-      new THREE.Vector2(32.5, 0),
-      new THREE.Vector2(34.5, 3),
-      new THREE.Vector2(33, 5),
-      new THREE.Vector2(30, 3),
-      new THREE.Vector2(28.5, -2),
+      new THREE.Vector2(14.4, -44),
+      new THREE.Vector2(19.4, -36),
+      new THREE.Vector2(22.3, -14),
+      new THREE.Vector2(23.4, 0),
+      new THREE.Vector2(24.8, 3),
+      new THREE.Vector2(23.8, 5),
+      new THREE.Vector2(21.6, 3),
+      new THREE.Vector2(20.5, -2),
     ]
     const pot = new THREE.Mesh(new THREE.LatheGeometry(profile, 48), terracotta)
+    pot.receiveShadow = true
     pot.position.y = SOIL_Y
     this.group.add(pot)
 
     const soil = new THREE.Mesh(
-      new THREE.CylinderGeometry(28.5, 26, 5, 40),
+      new THREE.CylinderGeometry(20, 18, 5, 40),
       new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 }),
     )
     soil.position.y = SOIL_Y + 1
+    soil.receiveShadow = true
     this.group.add(soil)
 
     const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.6, 3.4, 9, 12),
+      new THREE.CylinderGeometry(3.4, 4.6, 4, 12),
       new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
     )
-    stem.position.y = SOIL_Y + 5
+    stem.position.y = SOIL_Y + 3
+    stem.receiveShadow = true
     this.group.add(stem)
   }
 
   update(snapshot: PhenotypeSnapshot): void {
     const { material, shape } = snapshot
 
-    const fr = material.farina * 0.55
+    const fr = material.farina * 0.3
     const mixTo = (a: number, b: number): number => a + (b - a) * fr
     this.material.color.setRGB(mixTo(material.baseColor[0]!, 0.92), mixTo(material.baseColor[1]!, 0.94), mixTo(material.baseColor[2]!, 0.9))
     this.material.roughness = Math.min(1, 0.78 - 0.3 * material.gloss + (1 - snapshot.water) * 0.15)
-    this.material.sheen = 0.15 + 0.5 * material.farina
+    this.material.sheen = 0.1 + 0.25 * material.farina
     this.material.clearcoat = 0.15 + 0.35 * material.gloss
     this.material.clearcoatRoughness = 0.35 + 0.3 * (1 - snapshot.water)
     this.leafUniforms.uStressColor.value.setRGB(material.stressColor[0]!, material.stressColor[1]!, material.stressColor[2]!)
@@ -103,7 +106,7 @@ export class PlantRenderer {
       this.rebuildLeaves(snapshot.organs.length)
     }
 
-    const stemTop = SOIL_Y + 9
+    const stemTop = SOIL_Y + 5
     for (let i = 0; i < snapshot.organs.length; i++) {
       const pose = snapshot.organs[i]!
       const mesh = this.meshes[i]!
@@ -125,6 +128,8 @@ export class PlantRenderer {
     this.meshes.length = 0
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(this.leafGeometry!, this.material)
+      mesh.castShadow = true
+      mesh.receiveShadow = true
       this.leafGroup.add(mesh)
       this.meshes.push(mesh)
     }

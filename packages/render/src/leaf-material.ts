@@ -76,7 +76,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
         [
           'float backlight = pow(clamp(dot(normalize(vViewPosition), -uKeyDir), 0.0, 1.0), 3.0);',
           'float thickness = mix(1.0, 0.25, vT);',
-          'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * 2.2;',
+          'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * 2.6;',
           'gl_FragColor.rgb += transmitted * (0.5 + 0.5 * vC);',
           '#include <dithering_fragment>',
         ].join('\n'),

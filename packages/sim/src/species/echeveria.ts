@@ -197,13 +197,13 @@ export const ECHEVERIA: SpeciesDef = {
         ring: Math.round(f * 5),
         tilt,
         azimuth,
-        offset: radius * sizeScale,
+        offset: radius * sizeScale * 0.4, // 叶基收拢到生长点附近（消除悬浮空隙）,
         droop: (1 - leaf.turgor) * 0.2 + (1 - leaf.maturity) * 0.15,
         curl: curve,
         growth: leaf.maturity,
         length,
         width,
-        thickness: width * (0.25 + 0.4 * tGene),
+        thickness: width * (0.38 + 0.6 * tGene), // M2 反馈：加厚去塑料感
         colorState: leaf.colorState,
         turgor: leaf.turgor,
       })

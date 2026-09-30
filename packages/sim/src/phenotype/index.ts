@@ -71,7 +71,7 @@ export function derivePhenotype(
     water: plant.water,
     stretch: plant.stretch,
     material: {
-      baseColor: hslToRgb(0.28 + 0.17 * g('baseHue'), 0.32, 0.52),
+      baseColor: hslToRgb(0.28 + 0.17 * g('baseHue'), 0.48, 0.42),
       stressColor: hslToRgb(0.83 + 0.12 * g('stressHue'), 0.55, 0.6),
       farina: g('farina'),
       gloss: g('gloss'),

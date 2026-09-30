@@ -22,6 +22,8 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.toneMapping = THREE.ACESFilmicToneMapping // M2：脱离塑料感的第一杠杆
   renderer.toneMappingExposure = 1.05
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.setSize(container.clientWidth, container.clientHeight, false)
   renderer.domElement.style.width = '100%'
   renderer.domElement.style.height = '100%'
@@ -31,20 +33,28 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   // 程序化环境（无外部资产）：物理材质的真实反射/环境项
   const pmrem = new THREE.PMREMGenerator(renderer)
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environmentIntensity = 0.45
+  scene.environmentIntensity = 0.35
   pmrem.dispose()
   // far 6000：联系表相机在 ~2400mm 外俯拍 10×10 网格（远平面 2000 会整体裁剪，2026-10-01）
   const camera = new THREE.PerspectiveCamera(40, 1, 1, 6000)
   camera.position.set(0, 70, 175)
   camera.lookAt(0, 22, 0)
 
-  const key = new THREE.DirectionalLight(0xfff4e6, 1.5) // M2：2.4→1.5（过曝是发白元凶）
+  const key = new THREE.DirectionalLight(0xfff4e6, 1.8) // 光比拉开：朝向可读
+  key.castShadow = true
+  key.shadow.mapSize.set(1024, 1024)
+  key.shadow.camera.left = -90
+  key.shadow.camera.right = 90
+  key.shadow.camera.top = 90
+  key.shadow.camera.bottom = -90
+  key.shadow.camera.near = 50
+  key.shadow.camera.far = 500 // M2：2.4→1.5（过曝是发白元凶）
   key.position.set(120, 180, 150)
   scene.add(key)
   const fill = new THREE.DirectionalLight(0xdfe8ff, 0.5)
   fill.position.set(-100, 60, -80)
   scene.add(fill)
-  scene.add(new THREE.AmbientLight(0xffffff, 0.3))
+  scene.add(new THREE.AmbientLight(0xffffff, 0.18))
 
   const onResize = () => {
     const w = container.clientWidth
