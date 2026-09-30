@@ -6,8 +6,14 @@ const bridge: DesktopBridge = {
   setIgnoreMouseEvents(ignore: boolean) {
     ipcRenderer.send(IpcChannels.SetIgnoreMouseEvents, ignore)
   },
-  dragWindow(dx: number, dy: number) {
-    ipcRenderer.send(IpcChannels.DragWindow, dx, dy)
+  dragStart() {
+    ipcRenderer.send(IpcChannels.DragStart)
+  },
+  dragMove() {
+    ipcRenderer.send(IpcChannels.DragMove)
+  },
+  dragEnd() {
+    ipcRenderer.send(IpcChannels.DragEnd)
   },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)

@@ -3,8 +3,10 @@
 export const IpcChannels = {
   /** renderer → main：动态切换鼠标穿透（A3） */
   SetIgnoreMouseEvents: 'desktop:set-ignore-mouse-events',
-  /** renderer → main：手动拖动窗口（A4；禁用 CSS drag region） */
-  DragWindow: 'desktop:drag-window',
+  /** renderer → main：拖动生命周期（A4）。主进程用屏幕坐标锚定，窗口钉在光标上 */
+  DragStart: 'desktop:drag-start',
+  DragMove: 'desktop:drag-move',
+  DragEnd: 'desktop:drag-end',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -13,5 +15,7 @@ export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
 export interface DesktopBridge {
   version: string
   setIgnoreMouseEvents(ignore: boolean): void
-  dragWindow(dx: number, dy: number): void
+  dragStart(): void
+  dragMove(): void
+  dragEnd(): void
 }

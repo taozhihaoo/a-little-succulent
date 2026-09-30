@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, screen, Tray } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { IpcChannels } from '../shared/protocol'
@@ -66,10 +66,25 @@ ipcMain.on(IpcChannels.SetIgnoreMouseEvents, (_event, ignore: unknown) => {
   if (typeof ignore === 'boolean') win?.setIgnoreMouseEvents(ignore, { forward: true })
 })
 
-ipcMain.on(IpcChannels.DragWindow, (_event, dx: unknown, dy: unknown) => {
-  if (typeof dx !== 'number' || typeof dy !== 'number' || !win) return
+// A4：拖动用屏幕坐标锚定（光标 − 抓取偏移），而不是 renderer 相对位移——
+// 后者会随窗口追上光标而自我抵消（实测表现为"只跟上一半速度"）
+let dragOffset: { x: number; y: number } | undefined
+
+ipcMain.on(IpcChannels.DragStart, () => {
+  if (!win) return
+  const cursor = screen.getCursorScreenPoint()
   const pos = win.getPosition()
-  win.setPosition((pos[0] ?? 0) + Math.round(dx), (pos[1] ?? 0) + Math.round(dy))
+  dragOffset = { x: cursor.x - (pos[0] ?? 0), y: cursor.y - (pos[1] ?? 0) }
+})
+
+ipcMain.on(IpcChannels.DragMove, () => {
+  if (!win || !dragOffset) return
+  const cursor = screen.getCursorScreenPoint()
+  win.setPosition(cursor.x - dragOffset.x, cursor.y - dragOffset.y)
+})
+
+ipcMain.on(IpcChannels.DragEnd, () => {
+  dragOffset = undefined
 })
 
 void app.whenReady().then(() => {

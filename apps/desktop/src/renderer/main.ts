@@ -12,16 +12,18 @@ scheduler.start()
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
 const hitTest = makeHitTester(root)
 
-// A4：IPC 手动拖动（07 §5；禁用 CSS drag region）
+// A4：拖动生命周期交给主进程做屏幕坐标锚定；renderer 只报事件（rAF 节流 IPC）
 let dragging = false
-let lastX = 0
-let lastY = 0
+let moveQueued = false
 
 container.addEventListener('pointermove', (e) => {
   if (dragging) {
-    bridge.dragWindow(e.clientX - lastX, e.clientY - lastY)
-    lastX = e.clientX
-    lastY = e.clientY
+    if (moveQueued) return
+    moveQueued = true
+    requestAnimationFrame(() => {
+      moveQueued = false
+      if (dragging) bridge.dragMove()
+    })
     return
   }
   bridge.setIgnoreMouseEvents(!hitTest(e.clientX, e.clientY))
@@ -30,14 +32,19 @@ container.addEventListener('pointermove', (e) => {
 container.addEventListener('pointerdown', (e) => {
   if (hitTest(e.clientX, e.clientY)) {
     dragging = true
-    lastX = e.clientX
-    lastY = e.clientY
+    bridge.dragStart()
     container.setPointerCapture(e.pointerId)
   }
 })
 
-container.addEventListener('pointerup', () => {
-  dragging = false
-})
+function endDrag(): void {
+  if (dragging) {
+    dragging = false
+    bridge.dragEnd()
+  }
+}
+
+container.addEventListener('pointerup', endDrag)
+container.addEventListener('pointercancel', endDrag)
 
 console.info('[renderer] up; bridge =', bridge?.version ?? 'none')
