@@ -1,6 +1,6 @@
 import { createServer } from 'vite'
 import { spawn, execSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, writeFileSync, watch } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import electronPath from 'electron'
@@ -49,7 +49,7 @@ function killTree(pid) {
 }
 
 // —— 启动自清理：Windows 下关终端窗口不会触发任何信号 handler，
-//    残留的 dev 进程（vite 在本进程内）只能靠下次启动时按锁文件回收 ——
+//    残留的 dev 进程只能靠下次启动时按锁文件回收 ——
 if (existsSync(lockPath)) {
   const old = Number.parseInt(readFileSync(lockPath, 'utf8'), 10)
   if (Number.isFinite(old) && old !== process.pid && pidAlive(old) && pidIsNode(old)) {
@@ -59,13 +59,6 @@ if (existsSync(lockPath)) {
   rmSync(lockPath, { force: true })
 }
 writeFileSync(lockPath, String(process.pid))
-process.on('exit', () => {
-  try {
-    rmSync(lockPath, { force: true })
-  } catch {
-    // 锁文件清理失败无碍
-  }
-})
 
 const server = await createServer({ root: appRoot, mode: 'development' })
 await server.listen()
@@ -76,17 +69,54 @@ await buildMain()
 console.info(`[dev] renderer: ${url}`)
 console.info('[dev] launching electron…')
 
-const electron = spawn(electronPath, [appRoot, '--enable-logging'], {
-  stdio: 'inherit',
-  env: { ...process.env, ELECTRON_RENDERER_URL: url },
-})
-
-// 退出路径统一收口：杀 electron 进程树 → 关 vite → 删锁
+let electron = null
 let closing = false
+let restarting = false
+
+function launchElectron() {
+  const child = spawn(electronPath, [appRoot, '--enable-logging'], {
+    stdio: 'inherit',
+    env: { ...process.env, ELECTRON_RENDERER_URL: url },
+  })
+  // 只有"当前实例"的退出才关闭整个 dev；重启时旧实例的 close 被忽略
+  child.on('close', (code) => {
+    if (closing || child !== electron) return
+    void shutdown(code ?? 0)
+  })
+  electron = child
+}
+
+async function restartElectron(reason) {
+  if (closing || restarting) return
+  restarting = true
+  console.info(`[dev] ${reason} → 重建 main/preload 并重启 electron…`)
+  if (electron?.pid) killTree(electron.pid)
+  try {
+    await buildMain()
+  } catch (err) {
+    console.error('[dev] rebuild failed:', err)
+    restarting = false
+    return
+  }
+  launchElectron()
+  restarting = false
+}
+
+launchElectron()
+
+// main/preload 变更自动重建并重启（vite HMR 只覆盖 renderer）
+let watchTimer
+for (const dir of ['src/main', 'src/preload']) {
+  watch(path.join(appRoot, dir), { recursive: true }, () => {
+    clearTimeout(watchTimer)
+    watchTimer = setTimeout(() => void restartElectron(`${dir} 变更`), 250)
+  })
+}
+
 async function shutdown(code) {
   if (closing) return
   closing = true
-  if (electron.pid) killTree(electron.pid)
+  if (electron?.pid) killTree(electron.pid)
   await server.close()
   try {
     rmSync(lockPath, { force: true })
@@ -102,4 +132,3 @@ process.on('uncaughtException', (err) => {
   console.error('[dev] uncaught exception:', err)
   void shutdown(1)
 })
-electron.on('close', (code) => void shutdown(code ?? 0))

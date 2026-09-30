@@ -26,7 +26,8 @@ export function mountContactSheet(
   bridge: DesktopBridge,
 ): () => void {
   widget.group.visible = false
-  bridge.setBounds(1440, 1000)
+  // 旧 preload 包可能没有 setBounds（改动后需重启 dev 才生效）——可选调用降级
+  bridge.setBounds?.(1440, 1000)
 
   // 相机：俯视 10×10 网格；退出时恢复挂件机位（createSceneRoot 的默认值）
   const cam = root.camera
@@ -83,7 +84,7 @@ export function mountContactSheet(
     widget.group.visible = true
     cam.position.set(0, 70, 175)
     cam.lookAt(0, 22, 0)
-    bridge.setBounds(380, 460)
+    bridge.setBounds?.(380, 460)
     root.renderer.render(root.scene, root.camera)
   }
 }
