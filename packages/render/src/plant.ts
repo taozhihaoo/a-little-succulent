@@ -51,7 +51,7 @@ export class PlantRenderer {
 
     const soil = new THREE.Mesh(
       new THREE.CylinderGeometry(28.5, 26, 5, 40),
-      new THREE.MeshStandardMaterial({ color: 0x3d2f24, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 }),
     )
     soil.position.y = SOIL_Y + 1
     this.group.add(soil)

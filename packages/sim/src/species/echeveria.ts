@@ -34,7 +34,7 @@ export const ECHEVERIA_DEFAULT_GENOME: Record<string, number> = {
   // 颜色与质感
   baseHue: 0.4,
   stressHue: 0.35,
-  farina: 0.6,
+  farina: 0.35,
   edgeContrast: 0.55,
   gloss: 0.4,
   // 习性
@@ -139,6 +139,8 @@ export const ECHEVERIA: SpeciesDef = {
     const curve = g(plant, 'curvature')
 
     const lengthBase = (14 + 16 * lenGene) * (1 - 0.35 * density) // 耦合：叶密 → 叶短
+    // M1 真机反馈：45 天植株相对盆口（φ90mm）偏小，整体放大 ~35%
+    const sizeScale = 1.35
     const innerTilt = 0.55 - 0.3 * compact
     const outerTilt = 0.8 + 0.55 * outerOpen
 
@@ -153,13 +155,13 @@ export const ECHEVERIA: SpeciesDef = {
         (outerTilt - innerTilt) * Math.sqrt(f) +
         (1 - leaf.turgor) * 0.2 +
         (1 - leaf.maturity) * 0.15
-      const length = lengthBase * (0.55 + 0.45 * Math.sqrt(f)) * (0.25 + 0.75 * leaf.maturity)
+      const length = lengthBase * (0.55 + 0.45 * Math.sqrt(f)) * (0.25 + 0.75 * leaf.maturity) * sizeScale
       const width = length * (0.45 + 0.3 * wGene) * (1 + 0.15 * tGene) // 耦合：厚 → 宽
       poses.push({
         ring: Math.round(f * 5),
         tilt,
         azimuth,
-        offset: radius,
+        offset: radius * sizeScale,
         droop: (1 - leaf.turgor) * 0.2 + (1 - leaf.maturity) * 0.15,
         curl: curve,
         growth: leaf.maturity,
