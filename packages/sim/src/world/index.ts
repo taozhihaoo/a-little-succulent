@@ -1,4 +1,5 @@
 /** 世界状态类型（02 §3）。字段是模拟的唯一真相；渲染只读 PhenotypeSnapshot（07 §0）。 */
+import type { SignState } from '../signs'
 
 export type SpeciesId = 'echeveria'
 
@@ -61,6 +62,7 @@ export interface PlantState {
   leaves: LeafState[]
   stems: StemState[]
   counters: Record<string, number>
+  signs?: SignState[]
 }
 
 export interface WorldState {

@@ -3,6 +3,7 @@
  * 数值为 04 §3/§5 的调参起点；M2 按视觉验收滚动更新。
  */
 import type { EnvSample } from '../env'
+import type { SignDef } from '../signs'
 import type { Rng } from '../rng'
 import type { StepCtx } from '../step'
 import type { Genome, PlantState } from '../world'
@@ -255,3 +256,16 @@ export function makeJitteredGenome(
 ): Genome {
   return ECHEVERIA.createGenome(rng, baseTable)
 }
+
+/** 缺水挣扎迹象（M4 首个迹象）：长期干旱积累，progress 由应激积分给出 */
+export const ECHEVERIA_SIGNS: SignDef[] = [
+  {
+    id: 'droughtStruggle',
+    tier: 'growth',
+    afterglowMs: 5 * 86_400_000,
+    progress(plant): number {
+      const d = plant.stress.drought
+      return Math.max(0, Math.min(1, (d - 0.15) / 0.55))
+    },
+  },
+]

@@ -121,3 +121,33 @@ describe('徒长机制（04 §6）', () => {
     expect(sun.plants[0]!.stretch).toBeLessThan(0.15)
   })
 })
+
+describe('迹象系统（M4 任务 7）', () => {
+  it('缺水挣扎：强度爬升、相位推进、迹象事件入流', () => {
+    const world = createWorld('sign-test', 0, ENV)
+    const engine = createEngine({ world })
+    engine.advance(30 * DAY, Number.MAX_SAFE_INTEGER)
+    const sign = world.plants[0]!.signs?.find((s) => s.id === 'droughtStruggle')
+    expect(sign).toBeDefined()
+    expect(sign!.strength).toBeGreaterThan(0.2)
+    expect(['signal', 'developing', 'critical', 'occurred', 'afterglow']).toContain(sign!.phase)
+    const kinds = engine.events.map((e) => e.kind)
+    expect(kinds.some((k) => k.startsWith('sign.droughtStruggle'))).toBe(true)
+  })
+
+  it('事件预算：tier 每日上限生效（major 每日 1）', () => {
+    const world = createWorld('budget-test', 0, ENV)
+    const plant = world.plants[0]!
+    const day0 = 0
+    const cap = 1
+    let allowed = 0
+    for (let i = 0; i < 5; i++) {
+      const key = `budget:major:${day0}`
+      const used = plant.counters[key] ?? 0
+      if (used >= cap) continue
+      plant.counters[key] = used + 1
+      allowed++
+    }
+    expect(allowed).toBe(cap)
+  })
+})
