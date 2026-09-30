@@ -7,3 +7,12 @@ dist-electron/
 .DS_Store
 Thumbs.db
 .*.mjs
+
+# 截图/诊断产物永不入库（隐私：曾误提交桌面截图并已重写历史清除）
+*-shot*.png
+.shot*.png
+screenshot*.png
+win-*.ps1
+.fix*.mjs
+.w[A-Z].mjs
+.m2-*.mjs
