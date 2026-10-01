@@ -154,6 +154,9 @@ export const ECHEVERIA: SpeciesDef = {
     const nextLeafAt = plant.counters['nextLeafAt']
     if (nextLeafAt === undefined) {
       plant.counters['nextLeafAt'] = simTime + intervalMs / 2
+    } else if (simTime >= nextLeafAt && plant.water < 0.15) {
+      // 严重缺水：生长停滞（不出新叶，04 §6）
+      plant.counters['nextLeafAt'] = simTime + 1 * 86_400_000
     } else if (simTime >= nextLeafAt) {
       const alive = plant.leaves.filter((l) => l.droppedSimTime === undefined)
       if (alive.length < MAX_ALIVE) {
@@ -245,7 +248,7 @@ export const ECHEVERIA: SpeciesDef = {
         tilt,
         azimuth,
         offset: radius * sizeScale * 0.4 * (1 + 0.35 * plant.stretch), // 效果叠加：节间拉长+收拢
-        droop: (1 - leaf.turgor) * 0.2 + (1 - leaf.maturity) * 0.15,
+        droop: (1 - leaf.turgor) * 0.2 + (1 - leaf.maturity) * 0.15 + Math.min(0.35, plant.stress.drought * 0.08), // 干旱垂头加强
         curl: curve,
         growth: leaf.maturity,
         length,

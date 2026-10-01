@@ -23,6 +23,7 @@ export class PlantRenderer {
   private glowDrift?: (timeMs: number) => void
   private readonly leafGroup = new THREE.Group()
   private soilMaterial: THREE.MeshStandardMaterial | undefined
+  private granuleMaterial: THREE.MeshStandardMaterial | undefined
   private readonly waterDrops: { mesh: THREE.Mesh; born: number; y0: number; x: number; z: number }[] = []
   private waterFxUntil = 0
   private readonly meshes: THREE.Mesh[] = []
@@ -187,6 +188,32 @@ export class PlantRenderer {
     this.soilMaterial = soil.material as THREE.MeshStandardMaterial
     this.group.add(soil)
 
+    // 颗粒铺面（真实配土）：麦饭石 ~60% / 赤玉土 ~20% / 火山岩 ~12% / 珍珠岩 ~8%
+    const GRANULE_COLORS = [0x9a8f85, 0x9a8f85, 0x9a8f85, 0xb0684a, 0xb0684a, 0x4a3f3c, 0xe8e2d4]
+    const granules = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(1, 0),
+      new THREE.MeshStandardMaterial({ roughness: 0.95 }),
+      220,
+    )
+    const gd = new THREE.Object3D()
+    const gc = new THREE.Color()
+    for (let i = 0; i < 220; i++) {
+      const ang = Math.random() * Math.PI * 2
+      const rad = 4 + Math.sqrt(Math.random()) * 15
+      gd.position.set(Math.cos(ang) * rad, SOIL_Y + 3.1 + Math.random() * 0.8, Math.sin(ang) * rad)
+      gd.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3)
+      gd.scale.set(1.1 + Math.random() * 1.5, 0.8 + Math.random() * 0.9, 1.1 + Math.random() * 1.5)
+      gd.updateMatrix()
+      granules.setMatrixAt(i, gd.matrix)
+      const hex = GRANULE_COLORS[Math.floor(Math.random() * GRANULE_COLORS.length)]!
+      granules.setColorAt(i, gc.setHex(hex))
+    }
+    granules.instanceMatrix.needsUpdate = true
+    if (granules.instanceColor) granules.instanceColor.needsUpdate = true
+    granules.receiveShadow = true
+    this.granuleMaterial = granules.material as THREE.MeshStandardMaterial
+    this.group.add(granules)
+
     const stem = new THREE.Mesh(
       new THREE.CylinderGeometry(3.4, 4.6, 2, 12),
       new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
@@ -268,6 +295,7 @@ export class PlantRenderer {
       this.spikeGroup.removeFromParent()
       this.spikeGroup = undefined
     }
+    if (this.granuleMaterial) this.granuleMaterial.color.setScalar(1 - 0.45 * snapshot.water)
     if (this.soilMaterial) {
       // 湿度联动土面：湿则深、干则浅（04 §6）
       this.soilMaterial.color.setRGB(
