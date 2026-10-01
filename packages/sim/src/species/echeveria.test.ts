@@ -178,3 +178,24 @@ describe('花芽前兆（M4 任务 10）', () => {
     }
   })
 })
+
+describe('叶插（M5-3）', () => {
+  it('缺水植株的脱落叶在水分充足时生根为新实体', () => {
+    const world = createWorld('leafgo-test', 0, ENV)
+    const engine = createEngine({ world })
+    // 快进到有脱落叶（干旱 → 衰老脱落）
+    engine.advance(100 * DAY, Number.MAX_SAFE_INTEGER)
+    const before = world.plants.length
+    // 浇水激活叶插：周期补水保持 water > 0.3（叶插水分门槛）
+    for (let d = 0; d < 25; d += 10) {
+      world.plants[0]!.water = 0.9
+      engine.advance(10 * DAY, Number.MAX_SAFE_INTEGER)
+    }
+    engine.advance(5 * DAY, Number.MAX_SAFE_INTEGER)
+    expect(world.plants.length).toBeGreaterThan(before)
+    const child = world.plants[world.plants.length - 1]!
+    expect(child.id).toContain('leafgo')
+    expect(child.genome).toBe(world.plants[0]!.genome)
+    expect(child.leaves[0]!.maturity).toBeLessThan(0.5)
+  })
+})

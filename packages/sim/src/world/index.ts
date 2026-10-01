@@ -33,6 +33,8 @@ export interface LeafState {
   /** 出生时由确定性 RNG 派生的个体随机量（叶序抖动等） */
   rand: number
   droppedSimTime?: number
+  /** 叶插已生根（M5-3：转为新实体后原叶标记） */
+  rooted?: boolean
 }
 
 export interface StemState {

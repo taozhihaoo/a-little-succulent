@@ -91,6 +91,34 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
     // 4) 生长：委托给物种的生长语法（02 §2.1 步 5；M1 起 echeveria 实现叶生命周期）
     getSpecies(plant.speciesId).growStep(plant, env, dtMs, ctx)
 
+    // 5) 叶插（M5-3）：脱落叶躺 20 天 + 水分充足 + Slot 未满 → 生根为新实体（失去→转机）
+    if (plant.water > 0.3 && world.plants.length < 8) {
+      const ready = plant.leaves.find(
+        (l) => l.droppedSimTime !== undefined && !l.rooted &&
+          stepEnd - l.droppedSimTime > 20 * DAY_MS,
+      )
+      if (ready) {
+        ready.rooted = true
+        const childId = plant.id + '-leafgo' + world.plants.length
+        world.plants.push({
+          id: childId,
+          speciesId: plant.speciesId,
+          seed: plant.seed + '-leafgo' + world.plants.length,
+          genome: plant.genome, // 叶插：遗传母株基因
+          bornSimTime: stepEnd,
+          water: Math.min(1, plant.water + 0.2),
+          stress: { light: 0, drought: 0, temp: 0 },
+          stretch: 0,
+          seasonPhase: plant.seasonPhase,
+          leaves: [
+            { bornSimTime: stepEnd, ringIndex: 0, maturity: 0.05, turgor: 1, colorState: 0, damage: 0, rand: 0.5 },
+          ],
+          stems: [{ heightMm: 1, lignification: 0 }],
+          counters: {},
+        })
+        ctx.emit({ simTime: stepEnd, plantId: childId, kind: 'leafgo.rooted', tier: 'major', payload: { parentId: plant.id } })
+      }
+    }
     // 5) 迹象生命周期（M4 任务 7）：条件积分 → 相位推进 → 预算化事件
     stepSigns(
       plant,
