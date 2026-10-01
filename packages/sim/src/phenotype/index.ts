@@ -39,6 +39,8 @@ export interface PhenotypeSnapshot {
   stretch: number
   /** 花剑存在（M4 任务 10 迹象发生 → M5 渲染花剑几何） */
   spike: boolean
+  /** 茎状态（M5-2 老桩） */
+  stem: { heightMm: number; lignification: number }
   /** 开花进度 0~1（M5-1） */
   spikeBloom: number
   /** 凋谢标记 */
@@ -96,6 +98,7 @@ export function derivePhenotype(
     water: plant.water,
     stretch: plant.stretch,
     spike: plant.spike ?? false,
+    stem: { heightMm: plant.stems[0]?.heightMm ?? 2, lignification: plant.stems[0]?.lignification ?? 0 },
     spikeBloom: plant.spikeBloom ?? 0,
     spikeWithered: plant.spikeWithered ?? false,
     material: {

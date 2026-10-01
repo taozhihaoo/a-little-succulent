@@ -181,6 +181,20 @@ export const ECHEVERIA: SpeciesDef = {
       plant.counters['stretch.seen'] = 1
       ctx.emit({ simTime, plantId: plant.id, kind: 'stretch.visible', tier: 'growth' })
 
+    // 老桩（M5-2）：长龄株茎干缓慢长高 + 木质化（下部叶脱落后茎暴露）
+    const stems0 = plant.stems[0]
+    if (stems0) {
+      const ageD = (simTime - plant.bornSimTime) / 86_400_000
+      if (ageD > 150) {
+        stems0.heightMm = Math.min(30, stems0.heightMm + (dtMs / 86_400_000) * 1.2)
+        stems0.lignification = Math.min(1, stems0.lignification + (dtMs / 86_400_000) * 0.01)
+        if (stems0.lignification > 0.1 && plant.counters['trunk.seen'] === undefined) {
+          plant.counters['trunk.seen'] = 1
+          ctx.emit({ simTime, plantId: plant.id, kind: 'trunk.forming', tier: 'growth' })
+        }
+      }
+    }
+
     // 开花完整链（M5-1）：花剑置位后 花苞→盛放→凋谢→退场
     if (plant.spike) {
       plant.spikeBloom = Math.min(1, (plant.spikeBloom ?? 0) + dtMs / (9 * 86_400_000))

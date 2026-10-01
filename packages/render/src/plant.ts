@@ -26,6 +26,8 @@ export class PlantRenderer {
   private granuleMaterial: THREE.MeshStandardMaterial | undefined
   private readonly waterDrops: { mesh: THREE.Mesh; born: number; y0: number; x: number; z: number }[] = []
   private waterFxUntil = 0
+  private stemMesh!: THREE.Mesh
+  private stemMat!: THREE.MeshStandardMaterial
   private readonly meshes: THREE.Mesh[] = []
   private readonly variants: LeafVariant[]
   private leafGeometry: THREE.BufferGeometry | undefined
@@ -216,6 +218,16 @@ export class PlantRenderer {
     this.granuleMaterial = granules.material as THREE.MeshStandardMaterial
     this.group.add(granules)
 
+    const stemMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.4, 4.6, 2, 12),
+      new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
+    )
+    stemMesh.position.y = SOIL_Y + 2.5
+    stemMesh.receiveShadow = true
+    this.stemMesh = stemMesh
+    this.stemMat = stemMesh.material as THREE.MeshStandardMaterial
+    this.group.add(stemMesh)
+
     const stem = new THREE.Mesh(
       new THREE.CylinderGeometry(3.4, 4.6, 2, 12),
       new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
@@ -320,7 +332,11 @@ export class PlantRenderer {
     }
 
     const n = snapshot.organs.length
-    const stemTop = SOIL_Y + 3
+    const stemH = 2 + snapshot.stem.heightMm
+    this.stemMesh.scale.y = stemH / 2
+    this.stemMesh.position.y = SOIL_Y + 1 + stemH / 2
+    this.stemMat.color.setRGB(0.42, 0.49 - 0.16 * snapshot.stem.lignification, 0.31 - 0.06 * snapshot.stem.lignification)
+    const stemTop = SOIL_Y + 2 + snapshot.stem.heightMm * 0.5
     for (let i = 0; i < n; i++) {
       const pose = snapshot.organs[i]!
       const mesh = this.meshes[i]!
