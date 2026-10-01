@@ -105,8 +105,9 @@ export function derivePhenotype(
     spikeWithered: plant.spikeWithered ?? false,
     material: {
       baseColor: pal.base,
-      youngColor: mixC(pal.base, [0.93, 0.95, 0.82], 0.45),
-      matureColor: mixC(pal.base, [0.1, 0.16, 0.12], 0.35),
+      // 内浅外深色阶幅度随 edgeContrast 增幅（实拍对照 docs/08 §5：绚丽向内圈奶黄/外圈深色落差明显）
+      youngColor: mixC(pal.base, [0.95, 0.95, 0.8], 0.3 + 0.35 * (plant.genome.values['edgeContrast'] ?? 0.55)),
+      matureColor: mixC(pal.base, [0.12, 0.16, 0.12], 0.3 + 0.35 * (plant.genome.values['edgeContrast'] ?? 0.55)),
       stressColor: pal.tip,
       farina: g('farina'),
       gloss: g('gloss'),

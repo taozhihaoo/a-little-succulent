@@ -63,18 +63,18 @@ export const ECHEVERIA_VIVID_GENOME: Record<string, number> = {
   rosetteCompact: 0.82,
   outerOpen: 0.3,
   phylloJitter: 0.06,
-  // 叶形
-  leafLength: 0.4,
-  leafWidth: 0.72,
+  // 叶形（参考实拍：更短更肥、尖部全圆钝）
+  leafLength: 0.36,
+  leafWidth: 0.8,
   leafThickness: 0.9,
   curvature: 0.62,
-  tipSharpness: 0.25,
+  tipSharpness: 0.12,
   openness: 0.5,
-  // 色彩
+  // 色彩（渐变淹没感：高红边晕+低粉霜）
   baseHue: 0.4,
   stressHue: 0.35,
-  farina: 0.15,
-  edgeContrast: 0.7,
+  farina: 0.08,
+  edgeContrast: 0.9,
   gloss: 0.5,
   // 习性
   growthRate: 0.55,

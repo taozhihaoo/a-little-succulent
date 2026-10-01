@@ -86,8 +86,9 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
         '#include <color_fragment>',
         [
           '#include <color_fragment>',
-          'float stressMask = uStressAmount * pow(vT, 2.2) * (0.25 + 0.75 * vC);',
-          'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.6));',
+          // 实拍对照修正（docs/08 §5）：渐变带更宽（pow 2.2→1.6，从中段起淹没）、缘/肋权重差收窄、上限放宽
+          'float stressMask = uStressAmount * pow(vT, 1.6) * (0.35 + 0.65 * vC);',
+          'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.7));',
           // 锦化（M6-2）：沿叶长的奶油条纹 + 株内相位错开（真实锦斑的不规则分带）
           'if (uVariegata > 0.001) {',
           '  float band = 0.5 + 0.5 * sin(vT * 16.0 + vC * 4.0);',

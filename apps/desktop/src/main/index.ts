@@ -231,10 +231,21 @@ void app.whenReady().then(() => {
     setTimeout(() => {
       if (!win || win.isDestroyed()) return
       if (shotMode === 'sheet') {
-        // 联系表批量出图（DEV；Shift+C 挂载联系表）→ 大视口截图
+        // 联系表批量出图（DEV；Shift+C 挂载联系表）→ 大视口截图。
+        // 先按两次 K 锁午后相（K 是 DEV 预览；实时时刻常为夜相，看不出色板）
         win.setBounds({ width: 1440, height: 1000 })
         void win.webContents.executeJavaScript(
-          "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', shiftKey: true }))",
+          "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));" +
+            "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));" +
+            "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', shiftKey: true }))",
+        )
+      }
+      if (shotMode === 'vivid') {
+        // 绚丽预设白天单株验证：Shift+V 换基因组 + K×2 锁午后相
+        void win.webContents.executeJavaScript(
+          "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', shiftKey: true }));" +
+            "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));" +
+            "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));",
         )
       }
       const key =
