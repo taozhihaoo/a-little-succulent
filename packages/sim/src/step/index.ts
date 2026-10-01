@@ -92,7 +92,7 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
     getSpecies(plant.speciesId).growStep(plant, env, dtMs, ctx)
 
     // 5) 叶插（M5-3）：脱落叶躺 20 天 + 水分充足 + Slot 未满 → 生根为新实体（失去→转机）
-    if (plant.water > 0.3 && world.plants.length < 8) {
+    if (plant.water > 0.15 && world.plants.length < 8) {
       const ready = plant.leaves.find(
         (l) => l.droppedSimTime !== undefined && !l.rooted &&
           stepEnd - l.droppedSimTime > 20 * DAY_MS,

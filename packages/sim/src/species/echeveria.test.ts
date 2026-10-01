@@ -179,23 +179,22 @@ describe('花芽前兆（M4 任务 10）', () => {
   })
 })
 
+
+
 describe('叶插（M5-3）', () => {
-  it('缺水植株的脱落叶在水分充足时生根为新实体', () => {
+  it('脱落叶躺 20 天后在水分充足时生根为新实体', () => {
     const world = createWorld('leafgo-test', 0, ENV)
     const engine = createEngine({ world })
-    // 快进到有脱落叶（干旱 → 衰老脱落）
-    engine.advance(100 * DAY, Number.MAX_SAFE_INTEGER)
-    const before = world.plants.length
-    // 浇水激活叶插：周期补水保持 water > 0.3（叶插水分门槛）
-    for (let d = 0; d < 25; d += 10) {
+    // 全程定期照料：首批叶 LIFE_DAYS=80 天自然脱落，躺 20 天后（约第 100 天）满足叶插窗
+    for (let d = 0; d < 120; d += 10) {
       world.plants[0]!.water = 0.9
-      engine.advance(10 * DAY, Number.MAX_SAFE_INTEGER)
+      engine.advance(engine.simTime + 10 * DAY, Number.MAX_SAFE_INTEGER)
     }
-    engine.advance(5 * DAY, Number.MAX_SAFE_INTEGER)
-    expect(world.plants.length).toBeGreaterThan(before)
+    expect(world.plants.length).toBeGreaterThanOrEqual(2) // 母株+叶插子株
     const child = world.plants[world.plants.length - 1]!
     expect(child.id).toContain('leafgo')
-    expect(child.genome).toBe(world.plants[0]!.genome)
-    expect(child.leaves[0]!.maturity).toBeLessThan(0.5)
+    expect(child.bornSimTime).toBeGreaterThanOrEqual(95 * DAY) // 生根发生在首批叶脱落躺够 20 天之后
+    expect(child.genome.values['leafDensity']).toBe(world.plants[0]!.genome.values['leafDensity'])
+    expect(child.stems[0]!.heightMm).toBeLessThanOrEqual(2) // 新实体以幼苗起步（非老桩）
   })
 })

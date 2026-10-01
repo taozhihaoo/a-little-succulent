@@ -156,7 +156,7 @@ export const ECHEVERIA: SpeciesDef = {
       plant.counters['nextLeafAt'] = simTime + intervalMs / 2
     } else if (simTime >= nextLeafAt && plant.water < 0.15) {
       // 严重缺水：生长停滞（不出新叶，04 §6）
-      plant.counters['nextLeafAt'] = simTime + 1 * 86_400_000
+      plant.counters['nextLeafAt'] = simTime + intervalMs / 4
     } else if (simTime >= nextLeafAt) {
       const alive = plant.leaves.filter((l) => l.droppedSimTime === undefined)
       if (alive.length < MAX_ALIVE) {
@@ -180,6 +180,7 @@ export const ECHEVERIA: SpeciesDef = {
     if (plant.stretch > 0.25 && plant.counters['stretch.seen'] === undefined) {
       plant.counters['stretch.seen'] = 1
       ctx.emit({ simTime, plantId: plant.id, kind: 'stretch.visible', tier: 'growth' })
+    }
 
     // 老桩（M5-2）：长龄株茎干缓慢长高 + 木质化（下部叶脱落后茎暴露）
     const stems0 = plant.stems[0]
@@ -210,7 +211,6 @@ export const ECHEVERIA: SpeciesDef = {
         delete plant.counters['spike.witherAt']
         ctx.emit({ simTime, plantId: plant.id, kind: 'flower.done', tier: 'growth' })
       }
-    }
     }
 
     // 每叶：成熟 / turgor / 应激色 / 衰老脱落
