@@ -1,15 +1,19 @@
 /**
  * Simulation Console 最低版（03 §3~§5 最小集）：
- * 时间控制（+1h/+1d/+7d/存档）、植物状态、事件列表、危险重置。
+ * 时间控制（+1h/+1d/+7d/存档）、植物状态、事件列表、危险重置、种子码导入导出（M6-3）。
  * I 键切换；仅 DEV 构建。挂载期间每秒自刷新。
  */
 import * as THREE from 'three'
+import { decodeSeedCode, encodeSeedCode } from '@succulent/sim'
 import type { DesktopBridge } from '../shared/protocol'
 
 export interface ConsoleEngine {
   simTime: number
   world: {
     plants: {
+      speciesId: string
+      seed: string
+      genome: { values: Record<string, number> }
       bornSimTime: number
       water: number
       leaves: { droppedSimTime?: number }[]
@@ -25,6 +29,8 @@ export interface ConsoleDeps {
   getEngine: () => ConsoleEngine | null
   advanceDays: (days: number) => void
   checkpoint: () => void
+  /** 世界结构变化后由宿主刷新（sync/invalidate/checkpoint） */
+  onWorldChanged?: () => void
 }
 
 let panel: HTMLDivElement | null = null
@@ -54,6 +60,10 @@ export function mountConsole(deps: ConsoleDeps): void {
     '  <button data-act="d7">+7d</button>',
     '  <button data-act="cp">存档</button>',
     '</div>',
+    '<div class="sc-row">',
+    '  <button data-act="seed">种子码</button>',
+    '  <button data-act="import">导入种子码</button>',
+    '</div>',
     '<div class="sc-row"><button data-act="reset">重置存档（危险）</button></div>',
     '<div class="sc-status">…</div>',
     '<div class="sc-events"></div>',
@@ -72,6 +82,57 @@ export function mountConsole(deps: ConsoleDeps): void {
     if (act === 'cp') deps.checkpoint()
     if (act === 'reset') {
       void deps.bridge.resetSave().then(() => window.location.reload())
+    }
+    if (act === 'seed') {
+      const plant = engine.world.plants[0]
+      if (!plant) return
+      const code = encodeSeedCode({ speciesId: 'echeveria', seed: plant.seed, genome: plant.genome })
+      // prompt 同时承担展示与复制（聚焦后 Ctrl+C），clipboard API 失败也不丢码
+      window.prompt('种子码（聚焦后 Ctrl+C 复制）：', code)
+    }
+    if (act === 'import') {
+      const raw = window.prompt('粘贴种子码：')
+      if (!raw) return
+      const decoded = decodeSeedCode(raw)
+      if (!decoded) {
+        window.alert('种子码无效（校验未通过）')
+        return
+      }
+      const plants = engine.world.plants as {
+        id: string
+        speciesId: string
+        seed: string
+        genome: { values: Record<string, number> }
+        bornSimTime: number
+        water: number
+        stress: { light: number; drought: number; temp: number }
+        stretch: number
+        seasonPhase: number
+        leaves: { bornSimTime: number; ringIndex: number; maturity: number; turgor: number; colorState: number; damage: number; rand: number }[]
+        stems: { heightMm: number; lignification: number }[]
+        counters: Record<string, number>
+      }[]
+      if (plants.length >= 8) {
+        window.alert('盆已满（Slot 上限 8）')
+        return
+      }
+      plants.push({
+        id: `${decoded.seed}-shared${plants.length}`,
+        speciesId: decoded.speciesId,
+        seed: decoded.seed,
+        genome: decoded.genome,
+        bornSimTime: engine.simTime,
+        water: 0.7,
+        stress: { light: 0, drought: 0, temp: 0 },
+        stretch: 0,
+        seasonPhase: 0,
+        leaves: [
+          { bornSimTime: engine.simTime, ringIndex: 0, maturity: 0.3, turgor: 1, colorState: 0, damage: 0, rand: 0.5 },
+        ],
+        stems: [{ heightMm: 2, lignification: 0 }],
+        counters: {},
+      })
+      deps.onWorldChanged?.()
     }
   })
 

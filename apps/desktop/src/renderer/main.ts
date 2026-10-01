@@ -243,6 +243,11 @@ window.addEventListener('keydown', (e) => {
           checkpoint()
         },
         checkpoint: () => checkpoint(),
+        onWorldChanged: () => {
+          sync()
+          scheduler.invalidate()
+          checkpoint()
+        },
       })
       consoleMounted = true
     }
