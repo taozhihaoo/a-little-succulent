@@ -334,3 +334,18 @@ body {
 .j-foot button:hover {
   background: rgba(120, 180, 120, 0.26);
 }
+
+/* M3-14：退出保存提示 */
+.saving-hint {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(18, 22, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #cfe3cc;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 42;
+}

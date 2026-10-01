@@ -554,7 +554,12 @@ bridge.onFullscreen((fs) => {
   scheduler.setPhase(fs ? 'DeepIdle' : previewIdx === -1 && !lapseActive ? 'Ambient' : scheduler.phase)
 })
 
+// M3-14：退出落盘的可见反馈——提示常驻到进程退出（约 1~2s），不做淡出
 bridge.onFlushRequest(async () => {
+  const hint = document.createElement('div')
+  hint.className = 'saving-hint'
+  hint.textContent = '🍃 正在保存…'
+  document.body.appendChild(hint)
   await checkpoint()
   bridge.sendFlushDone()
 })
