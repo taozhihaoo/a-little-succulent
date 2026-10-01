@@ -99,6 +99,13 @@ async function checkpoint(): Promise<void> {
   await bridge.checkpoint(JSON.stringify(save), payload)
 }
 
+/** boot 后立即应用昼夜光照：否则画布要等第一次 Ambient burst 才脱离默认亮光 */
+function applyDayPhase(): void {
+  if (!engine) return
+  root.setDayPhase(engine.latestSnapshot().dayPhase)
+  scheduler.invalidate()
+}
+
 /** 02 §6.4 载入流程：检查点 → 截断后的事件前缀 → WAL 重放 → 墙钟追赶 */
 async function bootSim(): Promise<void> {
   const data = await bridge.loadSave()
@@ -130,6 +137,7 @@ async function bootSim(): Promise<void> {
         }
         console.info('[sim] 存档已恢复：sim =', new Date(engine.simTime).toLocaleString())
         sync()
+        applyDayPhase()
         return
       }
       console.warn('[sim] 存档格式版本不支持——重新开始')
@@ -147,6 +155,7 @@ async function bootSim(): Promise<void> {
   engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
   console.info('[sim] 全新开始')
   sync()
+  applyDayPhase()
 }
 
 void bootSim()
