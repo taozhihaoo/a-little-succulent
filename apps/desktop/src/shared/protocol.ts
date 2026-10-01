@@ -33,6 +33,10 @@ export const IpcChannels = {
   SettingsChanged: 'settings:changed',
   /** main → renderer：托盘"设置"菜单项（打开设置面板） */
   AppOpenSettings: 'app:open-settings',
+  /** main → renderer：新版本已下载，退出时自动安装（M7-2） */
+  AppUpdateReady: 'app:update-ready',
+  /** renderer → main：手动检查更新（设置面板，M7-2） */
+  AppUpdateCheck: 'app:update-check',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -84,4 +88,6 @@ export interface DesktopBridge {
   setSettings(patch: Partial<AppSettings>): Promise<AppSettings>
   onSettingsChanged(cb: (s: AppSettings) => void): void
   onOpenSettings(cb: () => void): void
+  onUpdateReady(cb: () => void): void
+  checkForUpdate(): Promise<{ packaged: boolean; checking?: boolean }>
 }

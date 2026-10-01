@@ -459,6 +459,7 @@ void bridge.getSettings().then((s) => {
   container.style.setProperty('zoom', String(s.windowScale))
   passthroughWhenIdle = s.passthroughWhenIdle
 })
+bridge.onUpdateReady(() => toast('🔄 新版本已就绪，退出挂件时自动安装'))
 
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
 const hitTest = makeHitTester(root)

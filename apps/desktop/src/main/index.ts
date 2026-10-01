@@ -7,6 +7,7 @@ import { IpcChannels, type AppSettings } from '../shared/protocol'
 import { initPersistence } from './persistence'
 import { getSettings, initSettings, updateSettings } from './settings'
 import { startFullscreenWatcher } from './fullscreen'
+import { initAutoUpdater, registerUpdateIpc } from './updater'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -206,6 +207,7 @@ void app.whenReady().then(() => {
 
   const saveDir = initPersistence()
   initSettings(saveDir)
+  registerUpdateIpc()
 
   // A13：全屏应用检测 -> 强制 DeepIdle（渲染三态，02 §4）
   startFullscreenWatcher(
@@ -215,6 +217,7 @@ void app.whenReady().then(() => {
   app.on('second-instance', () => win?.show())
   win = createWindow()
   createTray()
+  initAutoUpdater(() => win)
 
   // DEV 自检：SUCCULENT_SHOT=plain|journal|settings|photo —— 启动数秒后 capturePage 截图并退出。
   // 截图只写系统临时目录（隐私红线：永不入库）；journal/settings/photo 会先派发对应按键再截。

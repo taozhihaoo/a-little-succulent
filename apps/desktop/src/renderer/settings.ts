@@ -50,6 +50,7 @@ export function mountSettings(deps: SettingsDeps): void {
         '空白处穿透',
         `<input type="checkbox" data-key="passthroughWhenIdle" ${s.passthroughWhenIdle ? 'checked' : ''}>`,
       ),
+      '<div class="s-row"><button class="s-action" data-act="update">检查更新</button></div>',
       '<div class="s-row"><button class="s-danger" data-act="reset">重置存档（回到新苗）</button></div>',
       '<div class="s-hint">改动即时生效并自动保存</div>',
     ].join('')
@@ -77,6 +78,11 @@ export function mountSettings(deps: SettingsDeps): void {
     const t = e.target as HTMLElement
     if (t.dataset?.act === 'close') {
       toggle()
+      return
+    }
+    if (t.dataset?.act === 'update') {
+      deps.toast('正在检查更新…')
+      void deps.bridge.checkForUpdate()
       return
     }
     if (t.dataset?.act === 'reset') {

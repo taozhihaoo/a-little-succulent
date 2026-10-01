@@ -54,5 +54,11 @@ const bridge: DesktopBridge = {
   onOpenSettings(cb) {
     ipcRenderer.on(IpcChannels.AppOpenSettings, () => cb())
   },
+  onUpdateReady(cb) {
+    ipcRenderer.on(IpcChannels.AppUpdateReady, () => cb())
+  },
+  async checkForUpdate() {
+    return ipcRenderer.invoke(IpcChannels.AppUpdateCheck)
+  },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)

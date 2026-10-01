@@ -349,3 +349,18 @@ body {
   pointer-events: none;
   z-index: 42;
 }
+
+.settings-panel .s-action {
+  width: 100%;
+  padding: 6px 0;
+  background: rgba(120, 180, 120, 0.12);
+  border: 1px solid rgba(140, 200, 140, 0.28);
+  color: #cfe3cc;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.settings-panel .s-action:hover {
+  background: rgba(120, 180, 120, 0.26);
+}
