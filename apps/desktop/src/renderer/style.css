@@ -98,3 +98,41 @@ body {
   opacity: 0.55;
   font-style: normal;
 }
+
+/* M5-5 拍照：快门白闪 + 保存提示 */
+.photo-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.4s ease-out;
+  z-index: 40;
+}
+
+.photo-flash.fade {
+  opacity: 0;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%) translateY(6px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(18, 22, 18, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #dfe7dd;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 41;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

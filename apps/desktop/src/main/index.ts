@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, Tray } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { IpcChannels } from '../shared/protocol'
 import { initPersistence } from './persistence'
 import { startFullscreenWatcher } from './fullscreen'
@@ -93,6 +93,18 @@ function createWindow(): BrowserWindow {
   w.on('close', () => {
     if (saveTimer) clearTimeout(saveTimer)
     if (!w.isDestroyed()) saveBounds(w)
+  })
+
+  // M5-5 拍照：下载静默落盘到系统下载目录（挂件弹保存框很突兀），同名自动追加序号
+  w.webContents.session.on('will-download', (_event, item) => {
+    const dir = app.getPath('downloads')
+    const ext = path.extname(item.getFilename())
+    const stem = path.basename(item.getFilename(), ext)
+    let file = path.join(dir, `${stem}${ext}`)
+    for (let n = 1; existsSync(file); n++) {
+      file = path.join(dir, `${stem} (${n})${ext}`)
+    }
+    item.setSavePath(file)
   })
 
   const devUrl = process.env['ELECTRON_RENDERER_URL']

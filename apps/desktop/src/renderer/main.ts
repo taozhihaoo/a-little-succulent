@@ -354,4 +354,43 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
+// M5-5 拍照：Shift+P 截图下载（透明背景 PNG；文件名含苗龄）。主进程静默存入系统下载目录。
+function toast(msg: string): void {
+  const el = document.createElement('div')
+  el.className = 'toast'
+  el.textContent = msg
+  document.body.appendChild(el)
+  requestAnimationFrame(() => el.classList.add('show'))
+  setTimeout(() => {
+    el.classList.remove('show')
+    setTimeout(() => el.remove(), 350)
+  }, 2400)
+}
+
+window.addEventListener('keydown', (e) => {
+  if (!engine || !e.shiftKey || e.code !== 'KeyP') return
+  // 无 preserveDrawingBuffer：必须同一任务内"渲染一帧 → 读像素"，跨任务会读到空帧
+  root.renderer.render(root.scene, root.camera)
+  root.renderer.domElement.toBlob((blob) => {
+    if (!blob || !engine) return
+    const plant = engine.world.plants[0]
+    const age = Math.max(0, Math.round((engine.simTime - (plant?.bornSimTime ?? engine.simTime)) / DAY))
+    const now = new Date()
+    const pad = (n: number): string => String(n).padStart(2, '0')
+    const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `succulent-${age}d-${stamp}.png`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+    toast(`📸 已保存照片（苗龄 ${age} 天）`)
+  })
+  const flash = document.createElement('div')
+  flash.className = 'photo-flash'
+  document.body.appendChild(flash)
+  requestAnimationFrame(() => flash.classList.add('fade'))
+  setTimeout(() => flash.remove(), 450)
+})
+
 console.info('[renderer] up; bridge =', bridge?.version ?? 'none')
