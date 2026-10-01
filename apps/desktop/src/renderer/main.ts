@@ -6,7 +6,6 @@ import {
   judgeWallDelta,
   parseSave,
   type InputEvent,
-  type PhenotypeSnapshot,
   type SimEvent,
   makeJitteredGenome,
   ECHEVERIA_VIVID_GENOME,
@@ -43,13 +42,35 @@ async function applyInput(input: InputEvent): Promise<void> {
   engine?.apply(input, { skipWal: true })
 }
 
-const plantRenderer = new PlantRenderer(root.scene, true, scheduler)
+// M4-8：多植株渲染——母株居中（露珠仅母株），子株按 Slot 顺序排右侧
+const plantRenderers = new Map<string, { renderer: PlantRenderer; slot: number }>()
+const SLOT_GAP = 115 // mm
+const parentRenderer = (): PlantRenderer => plantRenderers.values().next().value!.renderer
 
 function sync(): void {
-  if (!engine) return
-  const snapshot: PhenotypeSnapshot = engine.latestSnapshot()
-  plantRenderer.update(snapshot)
+  const eng = engine
+  if (!eng) return
+  const plants = eng.world.plants
+  // 移除已消失植株的渲染器
+  for (const [id, entry] of plantRenderers) {
+    if (!plants.some((pl) => pl.id === id)) {
+      entry.renderer.dispose()
+      plantRenderers.delete(id)
+    }
+  }
+  plants.forEach((plant, i) => {
+    let entry = plantRenderers.get(plant.id)
+    if (!entry) {
+      const renderer = new PlantRenderer(root.scene, i === 0, scheduler)
+      entry = { renderer, slot: i }
+      plantRenderers.set(plant.id, entry)
+      renderer.group.position.x = i === 0 ? 0 : 95 + (i - 1) * SLOT_GAP
+      hitTest.rescan()
+    }
+    entry.renderer.update(eng.latestSnapshot(plant.id))
+  })
 }
+sync()
 
 async function checkpoint(): Promise<void> {
   if (!engine) return
@@ -117,7 +138,7 @@ let lapseBasePhase = 0
 const LAPSE_MS = 60000
 
 root.onFrame = (frameTimeMs) => {
-  plantRenderer.updateEffects(frameTimeMs)
+  for (const { renderer } of plantRenderers.values()) renderer.updateEffects(frameTimeMs)
   if (!engine) return
   if (lapseActive) {
     const t = (performance.now() - lapseStartMs) / LAPSE_MS
@@ -160,7 +181,7 @@ window.addEventListener('keydown', (e) => {
   if (!import.meta.env.DEV) return
   if (e.code === 'KeyC' && e.shiftKey && !exitContactSheet) {
     void import('../dev/contact-sheet').then((m) => {
-      exitContactSheet = m.mountContactSheet(root, plantRenderer, bridge)
+      exitContactSheet = m.mountContactSheet(root, parentRenderer(), bridge)
       hitTest.rescan()
     })
   } else if (e.code === 'Escape' && exitContactSheet) {
@@ -258,7 +279,7 @@ async function waterPlant(): Promise<void> {
   sync()
   scheduler.invalidate()
   checkpoint()
-  plantRenderer.waterBurst(performance.now())
+  parentRenderer().waterBurst(performance.now())
 }
 
 waterBtn.addEventListener('click', () => {

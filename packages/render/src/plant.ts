@@ -30,6 +30,7 @@ export class PlantRenderer {
   private leafGeometry: THREE.BufferGeometry | undefined
   private geometryKey = ''
   private lastOrganCount = -1
+  private spikeGroup: THREE.Group | undefined
 
   constructor(
     parent: THREE.Object3D,
@@ -75,6 +76,7 @@ export class PlantRenderer {
     })
     for (const v of this.variants) v.material.dispose()
     this.dew?.dispose()
+    this.spikeGroup?.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose() })
     this.leafGeometry?.dispose()
   }
 
@@ -224,6 +226,28 @@ export class PlantRenderer {
       v.u.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
     })
 
+    // M4-8：花剑渲染（数据由 flowerSpike 迹象置位）
+    if (snapshot.spike && !this.spikeGroup) {
+      this.spikeGroup = new THREE.Group()
+      const stalk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.8, 1.2, 55, 8),
+        new THREE.MeshStandardMaterial({ color: 0x8aa06a, roughness: 0.9 }),
+      )
+      stalk.position.y = SOIL_Y + 30
+      stalk.rotation.z = 0.12
+      stalk.castShadow = true
+      this.spikeGroup.add(stalk)
+      const budMat = new THREE.MeshStandardMaterial({ color: 0xe8a0b4, roughness: 0.6 })
+      for (let b = 0; b < 5; b++) {
+        const bud = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 8), budMat)
+        bud.position.set(Math.sin(b * 1.4) * 3.5, SOIL_Y + 56 - Math.abs(b - 2) * 4, Math.cos(b * 1.4) * 3.5)
+        this.spikeGroup.add(bud)
+      }
+      this.group.add(this.spikeGroup)
+    } else if (!snapshot.spike && this.spikeGroup) {
+      this.spikeGroup.removeFromParent()
+      this.spikeGroup = undefined
+    }
     if (this.soilMaterial) {
       // 湿度联动土面：湿则深、干则浅（04 §6）
       this.soilMaterial.color.setRGB(

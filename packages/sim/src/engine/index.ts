@@ -33,7 +33,7 @@ export interface SimEngine {
   apply(input: InputEvent, opts?: { skipWal?: boolean }): void
 
   /** 渲染层唯一数据来源（缓存语义：随时可同步读取） */
-  latestSnapshot(): PhenotypeSnapshot
+  latestSnapshot(plantId?: string): PhenotypeSnapshot
 
   /** 检查点，不含几何（02 §6.1） */
   checkpoint(): SaveFile
@@ -78,7 +78,7 @@ class InProcessSimEngine implements SimEngine {
   private _eventSeq: number
   private _inputSeq: number
   private _pending: QueuedInput[] = []
-  private snapshotCache: PhenotypeSnapshot | undefined
+  private snapshotCache = new Map<string, PhenotypeSnapshot>()
 
   constructor(
     private readonly _world: WorldState,
@@ -119,11 +119,15 @@ class InProcessSimEngine implements SimEngine {
     return { done: this._world.simTime >= target }
   }
 
-  latestSnapshot(): PhenotypeSnapshot {
-    const plant = this._world.plants[0]
+  latestSnapshot(plantId?: string): PhenotypeSnapshot {
+    const plant = plantId
+      ? this._world.plants.find((pl) => pl.id === plantId) ?? this._world.plants[0]
+      : this._world.plants[0]
     if (!plant) throw new Error('latestSnapshot: world has no plants')
-    this.snapshotCache ??= derivePhenotype(plant, this._world.simTime, GENERATOR_VERSION, this._world.env)
-    return this.snapshotCache
+    let snap = this.snapshotCache.get(plant.id)
+    snap ??= derivePhenotype(plant, this._world.simTime, GENERATOR_VERSION, this._world.env)
+    this.snapshotCache.set(plant.id, snap)
+    return snap
   }
 
   checkpoint(): SaveFile {
@@ -166,7 +170,7 @@ class InProcessSimEngine implements SimEngine {
       this._pending = this._pending.filter((p) => !settled.has(p))
     }
     w.simTime = stepStart + SIM_STEP_MS
-    this.snapshotCache = undefined
+    this.snapshotCache.clear()
   }
 }
 
