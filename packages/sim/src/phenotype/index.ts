@@ -20,6 +20,8 @@ export interface SnapshotMaterial {
   youngColor: [number, number, number]
   /** 外圈深叶色（0~1 RGB） */
   matureColor: [number, number, number]
+  /** 锦化表达量 0~1（M6-2：渲染侧奶油条纹强度；基因 ≥0.5 起效） */
+  variegata: number
 }
 
 export interface SnapshotShape {
@@ -110,6 +112,8 @@ export function derivePhenotype(
       gloss: g('gloss'),
       edgeContrast: g('edgeContrast'),
       stressAmount: stressWithBlush,
+      // 锦化（M6-2）：0.5 起效、0.85 满表达（与 genetics 稀有座位表达值对齐）
+      variegata: Math.max(0, Math.min(1, ((plant.genome.values['variegata'] ?? 0) - 0.5) / 0.35)),
     },
     shape: { tipSharpness: g('tipSharpness'), openness: g('openness'), curvature: g('curvature') },
     organs: species.morphology(plant),

@@ -26,12 +26,17 @@ describe('echeveria 基因（04 §3）', () => {
   it('默认集键与 04 §13 一致', () => {
     expect(Object.keys(ECHEVERIA_DEFAULT_GENOME).sort()).toEqual(
       [
-        'baseHue', 'curvature', 'droughtDecay', 'edgeContrast', 'farina', 'gloss', 'palette',
+        'baseHue', 'cristata', 'curvature', 'droughtDecay', 'edgeContrast', 'farina', 'gloss', 'palette',
         'growthRate', 'leafDensity', 'leafLength', 'leafThickness', 'leafWidth',
         'openness', 'outerOpen', 'phylloJitter', 'rosetteCompact', 'stressColorPropensity',
-        'stressHue', 'stretchPropensity', 'tipSharpness', 'waterTolerance',
+        'stressHue', 'stretchPropensity', 'tipSharpness', 'variegata', 'waterTolerance',
       ].sort(),
     )
+  })
+
+  it('稀有座位野生型为 0（M6-2：突变只来自子代掷骰/种子码）', () => {
+    expect(ECHEVERIA_DEFAULT_GENOME['variegata']).toBe(0)
+    expect(ECHEVERIA_DEFAULT_GENOME['cristata']).toBe(0)
   })
 })
 

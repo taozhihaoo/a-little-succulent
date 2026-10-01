@@ -46,6 +46,9 @@ export const ECHEVERIA_DEFAULT_GENOME: Record<string, number> = {
   stressColorPropensity: 0.65,
   stretchPropensity: 0.4,
   droughtDecay: 0.6,
+  // 稀有座位（M6-2）：野生型 0，只经子代突变或种子码引入；GENE_JITTER 为 0
+  variegata: 0,
+  cristata: 0,
 }
 
 /**
@@ -79,6 +82,9 @@ export const ECHEVERIA_VIVID_GENOME: Record<string, number> = {
   stressColorPropensity: 0.8,
   stretchPropensity: 0.3,
   droughtDecay: 0.6,
+  // 稀有座位（M6-2）
+  variegata: 0,
+  cristata: 0,
 }
 
 /**
@@ -114,6 +120,9 @@ const GENE_JITTER: Record<string, number> = {
   stressColorPropensity: 0.30,
   stretchPropensity: 0.25,
   droughtDecay: 0.25,
+  // 稀有座位零抖动：野生型永不自带突变（M6-2 只由子代突变/种子码引入）
+  variegata: 0,
+  cristata: 0,
 }
 
 function clamp01(v: number): number {
@@ -266,7 +275,9 @@ export const ECHEVERIA: SpeciesDef = {
       const k = n - 1 - i // 0 = 最新（中心）
       const f = n > 1 ? k / (n - 1) : 0
       const radius = 2 * Math.sqrt(k)
-      const azimuth = k * GOLDEN_ANGLE + (leaf.rand - 0.5) * 2 * jitter
+      // 缀化（M6-2）：生长点由点拉成线，方位角向扇面压缩（两列扇形）；0.5 起效 0.85 满表达
+      const crest = Math.max(0, Math.min(1, (g(plant, 'cristata') - 0.5) / 0.35))
+      const azimuth = (k * GOLDEN_ANGLE + (leaf.rand - 0.5) * 2 * jitter) * (1 - 0.85 * crest)
       const tilt =
         innerTilt +
         (outerTilt - innerTilt) * Math.sqrt(f) +

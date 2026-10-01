@@ -123,6 +123,9 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
         if (genetics.fatherId) {
           ctx.emit({ simTime: stepEnd, plantId: childId, kind: 'cross.bred', tier: 'major', payload: { motherId: plant.id, fatherId: genetics.fatherId } })
         }
+        for (const m of genetics.mutations) {
+          ctx.emit({ simTime: stepEnd, plantId: childId, kind: `mutate.${m}`, tier: 'major' })
+        }
       }
     }
     // 5) 迹象生命周期（M4 任务 7）：条件积分 → 相位推进 → 预算化事件
@@ -163,6 +166,9 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
         })
         if (genetics.fatherId) {
           ctx.emit({ simTime, plantId: childId, kind: 'cross.bred', tier: 'major', payload: { motherId: parent.id, fatherId: genetics.fatherId } })
+        }
+        for (const m of genetics.mutations) {
+          ctx.emit({ simTime, plantId: childId, kind: `mutate.${m}`, tier: 'major' })
         }
       },
     )

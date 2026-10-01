@@ -1,8 +1,7 @@
 /** M6-1 杂交遗传测试：父本选择确定性 + 基因座混合 + 引擎集成（cross.bred 事件）。 */
 import { describe, expect, it } from 'vitest'
-import { createRng } from '../rng'
-import { createEngine, createWorld } from '../engine'
-import { offspringGenetics, pickFather } from './index'
+import { createRng, type Rng } from '../rng'
+import { MUTATION_CHANCE, RARE_EXPRESS_THRESHOLD, createEngine, createWorld, offspringGenetics, pickFather } from '../index'
 import type { PlantState } from '../world'
 
 const DAY = 86_400_000
@@ -139,5 +138,44 @@ describe('杂交集成（M6-1）：叶插子代混合同盆开花父本', () => 
     mother2.water = 0.9
     engine2.advance(1 * DAY, Number.MAX_SAFE_INTEGER)
     expect(world2.plants[2]!.genome.values['leafLength']).toBe(child.genome.values['leafLength'])
+  })
+})
+
+describe('稀有突变（M6-2）', () => {
+  const seqRng = (seq: number[]): Rng => () => seq.shift() ?? 0.5
+
+  it('低概率翻转为显性并记录座位', () => {
+    const mother = makePlant('m', 's0', 5, false, 0.3)
+    // 克隆不消耗基因座骰；第一掷 variegata 命中，第二掷 cristata 未中
+    const { genome, mutations } = offspringGenetics(mother, undefined, seqRng([MUTATION_CHANCE / 2, 0.5]))
+    expect(mutations).toEqual(['variegata'])
+    expect(genome.values['variegata']).toBeGreaterThan(RARE_EXPRESS_THRESHOLD)
+    expect(genome.values['cristata'] ?? 0).toBeLessThan(RARE_EXPRESS_THRESHOLD)
+  })
+
+  it('已表达座位不再掷（不会突变回隐性）', () => {
+    const mother = makePlant('m', 's0', 5, false, 0.3)
+    mother.genome.values['variegata'] = 0.85
+    // variegata 被跳过，第一掷直接是 cristata
+    const { genome, mutations } = offspringGenetics(mother, undefined, seqRng([MUTATION_CHANCE / 2]))
+    expect(mutations).toEqual(['cristata'])
+    expect(genome.values['variegata']).toBe(0.85)
+  })
+
+  it('未掷中则无突变', () => {
+    const mother = makePlant('m', 's0', 5, false, 0.3)
+    const { genome, mutations } = offspringGenetics(mother, undefined, seqRng([0.99, 0.99]))
+    expect(mutations).toEqual([])
+    expect(genome.values['variegata'] ?? 0).toBeLessThan(RARE_EXPRESS_THRESHOLD)
+  })
+
+  it('锦化进入表型快照（≥0.5 起效，野生型为 0）', () => {
+    const world = createWorld('variegata-pheno', 0, ENV)
+    const engine = createEngine({ world })
+    const wild = engine.latestSnapshot().material.variegata
+    expect(wild).toBe(0)
+    world.plants[0]!.genome.values['variegata'] = 0.85
+    engine.refresh()
+    expect(engine.latestSnapshot().material.variegata).toBeGreaterThan(0.9)
   })
 })

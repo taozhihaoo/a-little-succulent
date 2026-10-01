@@ -23,6 +23,8 @@ export interface LeafMaterialUniforms {
   uSparkle: { value: number }
   uLightTint: { value: THREE.Color }
   uTime: { value: number }
+  /** 锦化表达量 0~1（M6-2：奶油条纹强度） */
+  uVariegata: { value: number }
 }
 
 
@@ -37,6 +39,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
     uSparkle: { value: 1 },
     uLightTint: { value: new THREE.Color(1, 1, 1) },
     uTime: { value: 0 },
+    uVariegata: { value: 0 },
   }
 
   material.onBeforeCompile = (shader) => {
@@ -48,6 +51,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
     shader.uniforms.uSparkle = uniforms.uSparkle
     shader.uniforms.uLightTint = uniforms.uLightTint
     shader.uniforms.uTime = uniforms.uTime
+    shader.uniforms.uVariegata = uniforms.uVariegata
 
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -75,6 +79,7 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
           'uniform float uTime;',
           'uniform float uSparkle;',
           'uniform vec3 uLightTint;',
+          'uniform float uVariegata;',
         ].join('\n'),
       )
       .replace(
@@ -83,6 +88,13 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
           '#include <color_fragment>',
           'float stressMask = uStressAmount * pow(vT, 2.2) * (0.25 + 0.75 * vC);',
           'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.6));',
+          // 锦化（M6-2）：沿叶长的奶油条纹 + 株内相位错开（真实锦斑的不规则分带）
+          'if (uVariegata > 0.001) {',
+          '  float band = 0.5 + 0.5 * sin(vT * 16.0 + vC * 4.0);',
+          '  float phase = 0.5 + 0.5 * sin(vWPos.x * 1.1 + vWPos.z * 1.4);',
+          '  float bandMask = smoothstep(0.42, 0.78, band * 0.6 + phase * 0.4) * uVariegata;',
+          '  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.90, 0.78), clamp(bandMask, 0.0, 0.88));',
+          '}',
         ].join('\n'),
       )
       .replace(

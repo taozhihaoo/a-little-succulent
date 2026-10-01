@@ -272,6 +272,7 @@ export class PlantRenderer {
       v.u.uStressAmount.value = Math.min(1, material.stressAmount * v.stressMul)
       v.u.uSparkle.value = 0.4 + 0.6 * material.farina
       v.u.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
+      v.u.uVariegata.value = material.variegata
     })
 
     // M4-8：花剑渲染（数据由 flowerSpike 迹象置位）——细长弯拱 + 顶端贴生花苞串
