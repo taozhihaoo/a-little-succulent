@@ -32,6 +32,8 @@ export class PlantRenderer {
   private geometryKey = ''
   private lastOrganCount = -1
   private spikeGroup: THREE.Group | undefined
+  private spikeBuds: THREE.Mesh[] = []
+  private spikeBudMat: THREE.MeshStandardMaterial | undefined
 
   constructor(
     parent: THREE.Object3D,
@@ -281,6 +283,7 @@ export class PlantRenderer {
         roughness: 0.5,
       })
       for (let b = 0; b < 6; b++) {
+      this.spikeBuds = []
         const bud = new THREE.Mesh(new THREE.SphereGeometry(1.3, 8, 8), budMat)
         const t = 0.82 + (b % 3) * 0.06
         const p = curve.getPoint(Math.min(1, t))
@@ -288,6 +291,7 @@ export class PlantRenderer {
         bud.position.x += (b - 2.5) * 1.1
         bud.position.y -= (b % 2) * 1.2
         bud.scale.set(1, 1.35, 1)
+        this.spikeBuds.push(bud)
         this.spikeGroup.add(bud)
       }
       this.group.add(this.spikeGroup)

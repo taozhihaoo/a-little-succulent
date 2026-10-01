@@ -180,6 +180,23 @@ export const ECHEVERIA: SpeciesDef = {
     if (plant.stretch > 0.25 && plant.counters['stretch.seen'] === undefined) {
       plant.counters['stretch.seen'] = 1
       ctx.emit({ simTime, plantId: plant.id, kind: 'stretch.visible', tier: 'growth' })
+
+    // 开花完整链（M5-1）：花剑置位后 花苞→盛放→凋谢→退场
+    if (plant.spike) {
+      plant.spikeBloom = Math.min(1, (plant.spikeBloom ?? 0) + dtMs / (9 * 86_400_000))
+      if (plant.spikeBloom >= 1 && plant.counters['spike.witherAt'] === undefined) {
+        plant.counters['spike.witherAt'] = simTime + 8 * 86_400_000
+        plant.spikeWithered = true
+        ctx.emit({ simTime, plantId: plant.id, kind: 'flower.withered', tier: 'growth' })
+      }
+      if (plant.spikeWithered && simTime >= (plant.counters['spike.witherAt'] ?? 0)) {
+        plant.spike = false
+        plant.spikeBloom = 0
+        plant.spikeWithered = false
+        delete plant.counters['spike.witherAt']
+        ctx.emit({ simTime, plantId: plant.id, kind: 'flower.done', tier: 'growth' })
+      }
+    }
     }
 
     // 每叶：成熟 / turgor / 应激色 / 衰老脱落

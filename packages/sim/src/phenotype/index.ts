@@ -39,6 +39,10 @@ export interface PhenotypeSnapshot {
   stretch: number
   /** 花剑存在（M4 任务 10 迹象发生 → M5 渲染花剑几何） */
   spike: boolean
+  /** 开花进度 0~1（M5-1） */
+  spikeBloom: number
+  /** 凋谢标记 */
+  spikeWithered: boolean
   material: SnapshotMaterial
   shape: SnapshotShape
   organs: OrganPose[]
@@ -92,6 +96,8 @@ export function derivePhenotype(
     water: plant.water,
     stretch: plant.stretch,
     spike: plant.spike ?? false,
+    spikeBloom: plant.spikeBloom ?? 0,
+    spikeWithered: plant.spikeWithered ?? false,
     material: {
       baseColor: pal.base,
       youngColor: mixC(pal.base, [0.93, 0.95, 0.82], 0.45),

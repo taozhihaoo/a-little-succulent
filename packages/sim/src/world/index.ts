@@ -65,6 +65,10 @@ export interface PlantState {
   signs?: SignState[]
   /** 花剑迹象（M4 任务 10）/ 开花（M5）：发生时置 true */
   spike?: boolean
+  /** 开花进度 0~1（M5-1：花苞→盛放→凋谢） */
+  spikeBloom?: number
+  /** 凋谢标记（花苞干枯、花剑待退场） */
+  spikeWithered?: boolean
 }
 
 export interface WorldState {
