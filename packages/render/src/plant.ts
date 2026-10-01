@@ -122,12 +122,12 @@ export class PlantRenderer {
   /** 浇水视觉：数颗水滴从上方落下（约 0.6s） */
   waterBurst(nowMs: number): void {
     if (this.waterDrops.length > 0) return
-    const geo = new THREE.SphereGeometry(1.1, 8, 8)
+    const geo = new THREE.SphereGeometry(0.9, 8, 8)
     const mat = new THREE.MeshPhysicalMaterial({
-      color: 0xbfe4f2,
+      color: 0xa8d8f0,
       roughness: 0.05,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.55,
       clearcoat: 1,
     })
     for (let i = 0; i < 5; i++) {
@@ -135,6 +135,7 @@ export class PlantRenderer {
       const x = (Math.random() - 0.5) * 24
       const z = (Math.random() - 0.5) * 24
       mesh.position.set(x, SOIL_Y + 38, z)
+      mesh.scale.set(1, 1.4, 1)
       this.group.add(mesh)
       this.waterDrops.push({ mesh, born: nowMs + i * 90, y0: SOIL_Y + 38, x, z })
     }
@@ -232,21 +233,34 @@ export class PlantRenderer {
       v.u.uTranslucency.value = 0.35 + 0.45 * (1 - snapshot.water)
     })
 
-    // M4-8：花剑渲染（数据由 flowerSpike 迹象置位）
+    // M4-8：花剑渲染（数据由 flowerSpike 迹象置位）——细长弯拱 + 顶端贴生花苞串
     if (snapshot.spike && !this.spikeGroup) {
       this.spikeGroup = new THREE.Group()
+      // 拱形花枝：三点贝塞尔 + 管几何（细：半径 0.5）
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, SOIL_Y + 4, 0),
+        new THREE.Vector3(1.5, SOIL_Y + 20, 0.5),
+        new THREE.Vector3(5.5, SOIL_Y + 32, 1),
+      ])
       const stalk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.8, 1.2, 55, 8),
-        new THREE.MeshStandardMaterial({ color: 0x8aa06a, roughness: 0.9 }),
+        new THREE.TubeGeometry(curve, 16, 0.5, 6),
+        new THREE.MeshStandardMaterial({ color: 0x7d9a5e, roughness: 0.85 }),
       )
-      stalk.position.y = SOIL_Y + 30
-      stalk.rotation.z = 0.12
       stalk.castShadow = true
       this.spikeGroup.add(stalk)
-      const budMat = new THREE.MeshStandardMaterial({ color: 0xe8a0b4, roughness: 0.6 })
-      for (let b = 0; b < 5; b++) {
-        const bud = new THREE.Mesh(new THREE.SphereGeometry(2.2, 8, 8), budMat)
-        bud.position.set(Math.sin(b * 1.4) * 3.5, SOIL_Y + 56 - Math.abs(b - 2) * 4, Math.cos(b * 1.4) * 3.5)
+      // 花苞：贴生在拱顶下侧，小铃铛形（椭球），渐次排列
+      const budMat = new THREE.MeshStandardMaterial({
+        color: 0xe89aae,
+        roughness: 0.5,
+      })
+      for (let b = 0; b < 6; b++) {
+        const bud = new THREE.Mesh(new THREE.SphereGeometry(1.3, 8, 8), budMat)
+        const t = 0.82 + (b % 3) * 0.06
+        const p = curve.getPoint(Math.min(1, t))
+        bud.position.copy(p)
+        bud.position.x += (b - 2.5) * 1.1
+        bud.position.y -= (b % 2) * 1.2
+        bud.scale.set(1, 1.35, 1)
         this.spikeGroup.add(bud)
       }
       this.group.add(this.spikeGroup)
@@ -257,9 +271,9 @@ export class PlantRenderer {
     if (this.soilMaterial) {
       // 湿度联动土面：湿则深、干则浅（04 §6）
       this.soilMaterial.color.setRGB(
-        0.30 - 0.20 * snapshot.water,
-        0.24 - 0.16 * snapshot.water,
-        0.18 - 0.12 * snapshot.water,
+        0.34 - 0.26 * snapshot.water,
+        0.27 - 0.21 * snapshot.water,
+        0.20 - 0.16 * snapshot.water,
       )
     }
     const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`
