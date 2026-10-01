@@ -158,6 +158,7 @@ setInterval(() => {
   scheduler.invalidate()
   sync()
   checkpoint()
+  if (journalOpen) renderJournal()
 }, 30_000)
 
 // dev：] = 快进 7 模拟日 + 立即检查点（快进必须可持久化）
@@ -242,6 +243,77 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
+// M5-4 Journal：J 键时间线——消费事件日志，把"发生了什么"翻译成陪伴语言
+const JOURNAL_TEXT: Record<string, string> = {
+  'leaf.dropped': '一片叶子悄悄落下了',
+  'leafgo.rooted': '落叶悄悄生根，新的生命开始了',
+  'stretch.visible': '有点徒长——它在努力够阳光',
+  'trunk.forming': '茎干开始木质化，老桩初成',
+  'flower.withered': '花谢了，余韵还在',
+  'flower.done': '花期结束了',
+  'water.low': '土有点干了，记得看看它',
+  'water.critical': '它很渴，快浇浇水吧',
+  'water.recovered': '喝饱水，缓过来了',
+  'sign.offset.occurred': '基部长出了小侧芽',
+  'sign.flowerSpike.occurred': '花剑抽出来了！',
+  'sign.droughtStruggle.occurred': '缺水让它有点撑不住',
+}
+
+const journal = document.createElement('div')
+journal.className = 'journal-panel'
+journal.style.display = 'none'
+document.body.appendChild(journal)
+let journalOpen = false
+
+function closeJournal(): void {
+  journalOpen = false
+  journal.style.display = 'none'
+}
+
+function renderJournal(): void {
+  const eng = engine
+  if (!eng) return
+  const moments = eng.events
+    .filter((ev) =>
+      ev.kind.startsWith('sign.')
+        ? ev.kind.endsWith('.occurred') || ev.kind.endsWith('.critical')
+        : ev.kind in JOURNAL_TEXT,
+    )
+    .slice(-60)
+    .reverse()
+  const rows = moments
+    .map((ev) => {
+      const t = new Date(ev.simTime)
+      const pad = (n: number): string => String(n).padStart(2, '0')
+      const time = `${t.getMonth() + 1}月${t.getDate()}日 ${pad(t.getHours())}:${pad(t.getMinutes())}`
+      const text = JOURNAL_TEXT[ev.kind] ?? (ev.kind.endsWith('.critical') ? '似乎有什么要发生了…' : ev.kind)
+      return `<div class="j-row"><span class="j-dot tier-${ev.tier}"></span><div><div class="j-text">${text}</div><div class="j-time">${time}</div></div></div>`
+    })
+    .join('')
+  journal.innerHTML =
+    `<div class="j-head"><span>时间线 · ${moments.length} 条</span><button class="j-close" title="关闭">×</button></div>` +
+    (rows || '<div class="j-empty">还没有记录——陪伴它的日子，都会在这里留下痕迹</div>')
+}
+
+journal.addEventListener('click', (e) => {
+  if (e.target instanceof HTMLElement && e.target.classList.contains('j-close')) closeJournal()
+})
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && journalOpen) {
+    closeJournal()
+    return
+  }
+  if (e.code !== 'KeyJ' || e.shiftKey || e.repeat || !engine) return
+  if (journalOpen) {
+    closeJournal()
+  } else {
+    journalOpen = true
+    journal.style.display = 'block'
+    renderJournal()
+  }
+})
+
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
 const hitTest = makeHitTester(root)
 
@@ -249,7 +321,16 @@ const hitTest = makeHitTester(root)
 let dragging = false
 let moveQueued = false
 
+// 指针是否落在 DOM 面板上（用包围盒而非 e.target：面板挂在 body 下，forward 事件的 target 不可靠）
+function overRect(x: number, y: number, el: HTMLElement): boolean {
+  if (el.style.display === 'none') return false
+  const r = el.getBoundingClientRect()
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+}
+
 container.addEventListener('pointermove', (e) => {
+  // DOM 面板（右键菜单/Journal）悬停时保持接收鼠标，否则会被穿透
+  const overPanel = overRect(e.clientX, e.clientY, journal) || overRect(e.clientX, e.clientY, menu)
   if (dragging) {
   if (menuOpen) return
     if (moveQueued) return
@@ -260,7 +341,7 @@ container.addEventListener('pointermove', (e) => {
     })
     return
   }
-  bridge.setIgnoreMouseEvents(!hitTest(e.clientX, e.clientY))
+  bridge.setIgnoreMouseEvents(!overPanel && !hitTest(e.clientX, e.clientY))
 })
 
 container.addEventListener('pointerdown', (e) => {

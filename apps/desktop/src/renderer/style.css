@@ -136,3 +136,88 @@ body {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* M5-4 Journal：时间线面板 */
+.journal-panel {
+  position: fixed;
+  right: 10px;
+  top: 10px;
+  width: 248px;
+  max-height: 72vh;
+  overflow-y: auto;
+  background: rgba(12, 16, 12, 0.92);
+  border: 1px solid rgba(140, 200, 140, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 12px/1.6 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  color: #dfe7dd;
+  z-index: 30;
+}
+
+.journal-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.journal-panel::-webkit-scrollbar-thumb {
+  background: rgba(140, 200, 140, 0.25);
+  border-radius: 3px;
+}
+
+.j-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #9fd4a0;
+  margin-bottom: 8px;
+}
+
+.j-close {
+  background: none;
+  border: none;
+  color: #9fd4a0;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.j-row {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(140, 200, 140, 0.12);
+}
+
+.j-row:last-child {
+  border-bottom: none;
+}
+
+.j-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 6px;
+}
+
+.j-dot.tier-major {
+  background: #e8b04b;
+}
+
+.j-dot.tier-growth {
+  background: #9fd4a0;
+}
+
+.j-dot.tier-micro {
+  background: #6f7f6f;
+}
+
+.j-time {
+  font-size: 10px;
+  color: #8fa08f;
+}
+
+.j-empty {
+  color: #8fa08f;
+  padding: 8px 0;
+}
