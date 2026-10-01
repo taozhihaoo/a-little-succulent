@@ -23,6 +23,8 @@ export interface SaveFile {
   appState: {
     windowBounds?: { x: number; y: number; width: number; height: number }
     scale: number
+    /** 已解锁成就 id（M6-4：宿主层写入，M7 换 Steamworks 侧） */
+    achievements?: string[]
   }
 }
 

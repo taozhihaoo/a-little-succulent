@@ -12,6 +12,7 @@ import {
   ECHEVERIA_VIVID_GENOME,
 } from '@succulent/sim'
 import { mountConsole, unmountConsole } from '../dev/console'
+import { ACHIEVEMENT_DEFS, achievementsForEvent, derivedAchievements } from '../shared/achievements'
 import {
   createSceneRoot,
   makeHitTester,
@@ -90,13 +91,36 @@ sync()
 
 async function checkpoint(): Promise<void> {
   if (!engine) return
-  const save = engine.checkpoint()
+  const save = engine.checkpoint({ achievements: [...unlockedAchievements] })
   save.lastWallSeen = Date.now()
   save.eventCount = flushedEvents
   const newEvents = engine.events.slice(flushedEvents)
   const payload = newEvents.map((e) => JSON.stringify(e)).join('\n')
   flushedEvents = engine.events.length
   await bridge.checkpoint(JSON.stringify(save), payload)
+}
+
+// M6-4 成就：事件驱动解锁 + 世界派生条件，存档 appState 持久化（M7 换 Steamworks unlock）
+const unlockedAchievements = new Set<string>()
+let achievementCursor = 0
+const achievementById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]))
+
+function unlockAchievement(id: string): void {
+  if (unlockedAchievements.has(id)) return
+  unlockedAchievements.add(id)
+  const def = achievementById.get(id)
+  if (def) toast(`🏆 成就解锁：${def.title}——${def.desc}`)
+}
+
+function evaluateAchievements(): void {
+  const eng = engine
+  if (!eng) return
+  // 只评估本会话新产生的事件（历史事件不补发 toast）
+  for (const ev of eng.events.slice(achievementCursor)) {
+    for (const id of achievementsForEvent(ev.kind)) unlockAchievement(id)
+  }
+  achievementCursor = eng.events.length
+  for (const id of derivedAchievements(eng.world, eng.simTime)) unlockAchievement(id)
 }
 
 /** boot 后立即应用昼夜光照：否则画布要等第一次 Ambient burst 才脱离默认亮光 */
@@ -128,6 +152,9 @@ async function bootSim(): Promise<void> {
         if (drift > 0) {
           console.warn(`[sim] 模拟时间超前墙钟 ${Math.round(drift / DAY)} 天——已再锚定回当前时间`)
         }
+        // 成就：恢复已解锁集合；游标指向历史末尾（历史事件不补发 toast）
+        for (const id of save.appState?.achievements ?? []) unlockedAchievements.add(id)
+        achievementCursor = events.length
         // 墙钟追赶 + 回拨保护（02 §1.2 / §1.4）
         const verdict = judgeWallDelta(save.lastWallSeen, Date.now())
         if (verdict.status === 'ok') {
@@ -187,6 +214,7 @@ setInterval(() => {
   engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
   scheduler.invalidate()
   sync()
+  evaluateAchievements()
   checkpoint()
   if (journalOpen) renderJournal()
 }, 30_000)

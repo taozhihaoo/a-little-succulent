@@ -38,7 +38,7 @@ export interface SimEngine {
   refresh(): void
 
   /** 检查点，不含几何（02 §6.1） */
-  checkpoint(): SaveFile
+  checkpoint(appState?: { achievements?: string[] }): SaveFile
 }
 
 /** 输入 WAL 抽象（02 §6.4）。进程内为同步 ack；真实文件持久化在主进程（07 §2）。 */
@@ -137,7 +137,7 @@ class InProcessSimEngine implements SimEngine {
     this.snapshotCache.clear()
   }
 
-  checkpoint(): SaveFile {
+  checkpoint(appState?: { achievements?: string[] }): SaveFile {
     return {
       formatVersion: 1,
       simulationVersion: SIMULATION_VERSION,
@@ -151,7 +151,7 @@ class InProcessSimEngine implements SimEngine {
       eventLogRef: 'events.jsonl',
       inputWalOffset: this._inputSeq,
       eventCount: this._events.length,
-      appState: { scale: 1 },
+      appState: { scale: 1, achievements: appState?.achievements },
     }
   }
 
