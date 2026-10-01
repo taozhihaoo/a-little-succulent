@@ -37,6 +37,8 @@ export const IpcChannels = {
   AppUpdateReady: 'app:update-ready',
   /** renderer → main：手动检查更新（设置面板，M7-2） */
   AppUpdateCheck: 'app:update-check',
+  /** renderer → main：解锁成就（本地持久化 + Steamworks 激活，M6-4/M7） */
+  AchievementUnlock: 'achievements:unlock',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
@@ -90,4 +92,5 @@ export interface DesktopBridge {
   onOpenSettings(cb: () => void): void
   onUpdateReady(cb: () => void): void
   checkForUpdate(): Promise<{ packaged: boolean; checking?: boolean }>
+  unlockAchievement(id: string): void
 }

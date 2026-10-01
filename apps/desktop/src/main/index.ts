@@ -8,6 +8,7 @@ import { initPersistence } from './persistence'
 import { getSettings, initSettings, updateSettings } from './settings'
 import { startFullscreenWatcher } from './fullscreen'
 import { initAutoUpdater, registerUpdateIpc } from './updater'
+import { getSteam } from './steam'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -208,6 +209,10 @@ void app.whenReady().then(() => {
   const saveDir = initPersistence()
   initSettings(saveDir)
   registerUpdateIpc()
+  // M6-4/M7：成就解锁 → Steamworks 激活（本地持久化在 renderer 的 checkpoint appState 里）
+  ipcMain.on(IpcChannels.AchievementUnlock, (_event, id: unknown) => {
+    if (typeof id === 'string' && id.length > 0) getSteam()?.unlockAchievement(id)
+  })
 
   // A13：全屏应用检测 -> 强制 DeepIdle（渲染三态，02 §4）
   startFullscreenWatcher(

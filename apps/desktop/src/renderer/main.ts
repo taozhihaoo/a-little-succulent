@@ -112,6 +112,7 @@ const achievementById = new Map(ACHIEVEMENT_DEFS.map((d) => [d.id, d]))
 function unlockAchievement(id: string): void {
   if (unlockedAchievements.has(id)) return
   unlockedAchievements.add(id)
+  bridge.unlockAchievement(id) // Steam 在线时激活 Steam 成就；离线为 no-op
   const def = achievementById.get(id)
   if (def) toast(`🏆 成就解锁：${def.title}——${def.desc}`)
 }

@@ -60,5 +60,8 @@ const bridge: DesktopBridge = {
   async checkForUpdate() {
     return ipcRenderer.invoke(IpcChannels.AppUpdateCheck)
   },
+  unlockAchievement(id) {
+    ipcRenderer.send(IpcChannels.AchievementUnlock, id)
+  },
 }
 contextBridge.exposeInMainWorld('succulent', bridge)

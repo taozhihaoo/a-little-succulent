@@ -141,37 +141,80 @@ export class LocalCloudAdapter implements CloudAdapter {
 }
 
 /**
- * Steamworks Cloud 换点（M7）：load/checkpoint 换成 RemoteStorage 三件套读写。
- * 当前仅骨架（方法不可调用）；工厂在检测到 Steam 环境时也仍回退本地。
+ * Steam 云存档实现：本地永远先写（离线安全/崩溃安全），随后镜像到 Remote Storage。
+ * 远端文件为整文件读写（Remote Storage 无追加），事件/输入以"读-并-写回"模拟追加。
  */
 export class SteamCloudAdapter implements CloudAdapter {
   readonly name = 'steam'
+  private static readonly FILES = ['save.json', 'inputs.jsonl', 'events.jsonl'] as const
 
-  static isSteamEnvironment(): boolean {
-    return process.env['SteamAppId'] !== undefined || process.env['STEAMAPPID'] !== undefined
-  }
+  constructor(
+    private readonly local: LocalCloudAdapter,
+    private readonly steam: import('./steam').SteamBridge,
+  ) {}
 
   load(): CloudBlobs {
-    throw new Error('SteamCloudAdapter: Steamworks Cloud 随 M7 接入')
+    const base = this.local.load()
+    try {
+      const steamSave = this.steam.readFile('save.json')
+      const remote = (name: string, fallback: string[]): string[] => {
+        const raw = this.steam.readFile(name)
+        return raw ? raw.split('\n').filter((l) => l.length > 0) : fallback
+      }
+      return {
+        // 挂件单机单实例使用：远端非空即视为有效（mtime 比较留给 M7 冲突 UI）
+        saveJson: steamSave ?? base.saveJson,
+        inputLines: remote('inputs.jsonl', base.inputLines),
+        eventLines: remote('events.jsonl', base.eventLines),
+      }
+    } catch {
+      return base
+    }
   }
 
-  checkpoint(): void {
-    throw new Error('SteamCloudAdapter: Steamworks Cloud 随 M7 接入')
+  checkpoint(saveJson: string, newEventLines: string): void {
+    this.local.checkpoint(saveJson, newEventLines) // 本地原子写先行
+    try {
+      if (!this.steam.writeFile('save.json', saveJson)) return
+      if (newEventLines.length > 0) {
+        const existing = this.steam.readFile('events.jsonl') ?? ''
+        this.steam.writeFile('events.jsonl', existing + newEventLines + '\n')
+      }
+    } catch {
+      // 镜像失败不影响本地（下次 checkpoint 重新镜像）
+    }
   }
 
-  appendInput(): void {
-    throw new Error('SteamCloudAdapter: Steamworks Cloud 随 M7 接入')
+  appendInput(line: string): void {
+    this.local.appendInput(line)
+    try {
+      const existing = this.steam.readFile('inputs.jsonl') ?? ''
+      this.steam.writeFile('inputs.jsonl', existing + line + '\n')
+    } catch {
+      // 同上
+    }
   }
 
   reset(): void {
-    throw new Error('SteamCloudAdapter: Steamworks Cloud 随 M7 接入')
+    this.local.reset()
+    for (const f of SteamCloudAdapter.FILES) this.steam.deleteFile(f)
   }
 }
 
-/** 后端选择：Steamworks 接线（M7）后此处改为返回 SteamCloudAdapter */
+/** 后端选择：steamworks.js init 成功 → Steam 镜像（本地 Always 兜底写）；否则纯 Local（M7） */
 export function createCloudAdapter(dir: string): CloudAdapter {
-  if (SteamCloudAdapter.isSteamEnvironment()) {
-    console.info('[cloud] Steam 环境检测到——Steamworks Cloud 随 M7 接入，当前使用本地存档')
+  const local = new LocalCloudAdapter(dir)
+  try {
+    // 惰性 require：vitest 环境（无 electron）不阻断；steamworks.js 缺失时走本地
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getSteam } = require('./steam') as typeof import('./steam')
+    const steam = getSteam()
+    if (steam) {
+      console.info('[cloud] Steam Cloud 已启用')
+      return new SteamCloudAdapter(local, steam)
+    }
+  } catch {
+    // steamworks.js 不可用 → 纯本地
   }
-  return new LocalCloudAdapter(dir)
+  return local
 }

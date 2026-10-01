@@ -14,7 +14,7 @@ export async function buildMain() {
     platform: 'node',
     format: 'cjs',
     target: 'node20',
-    external: ['electron', 'koffi'],
+    external: ['electron', 'koffi', 'steamworks.js'],
     outfile: path.join(appRoot, 'out/main/index.cjs'),
     sourcemap: 'inline',
     // CJS 里 import.meta 不存在（esbuild 置 undefined，fileURLToPath 会炸——打包版实测）：
