@@ -23,11 +23,17 @@ export interface CloudAdapter {
   reset(): void
 }
 
-/** 本地文件实现：原子检查点（tmp+rename）+ 事件轮转（512KB→events.1.jsonl，02 §6.2） */
+/** 本地文件实现：原子检查点（tmp+rename）+ 事件多代归档链（M3-13）+ 归档摘要 */
 export class LocalCloudAdapter implements CloudAdapter {
   readonly name = 'local'
 
-  constructor(private readonly dir: string) {
+  constructor(
+    private readonly dir: string,
+    /** 轮转阈值（默认 512KB，02 §6.2）；测试可调小 */
+    private readonly rotateBytes = 512 * 1024,
+    /** 归档保留代数：events.1(最新) ~ events.{gens-1}(最老) */
+    private readonly archiveGens = 3,
+  ) {
     mkdirSync(dir, { recursive: true })
   }
 
@@ -67,9 +73,9 @@ export class LocalCloudAdapter implements CloudAdapter {
     renameSync(tmp, path.join(this.dir, 'save.json'))
     if (newEventLines.length > 0) {
       const evPath = path.join(this.dir, 'events.jsonl')
-      // 轮转：超 512KB 归档为 events.1.jsonl（保留一代，02 §6.2）
-      if (existsSync(evPath) && statSync(evPath).size > 512 * 1024) {
-        renameSync(evPath, path.join(this.dir, 'events.1.jsonl'))
+      // 轮转：超阈值时整链上移一代（M3-13），并重写归档摘要
+      if (existsSync(evPath) && statSync(evPath).size > this.rotateBytes) {
+        this.rotateEventLog()
       }
       appendFileSync(evPath, newEventLines.endsWith('\n') ? newEventLines : newEventLines + '\n')
     }
@@ -83,6 +89,53 @@ export class LocalCloudAdapter implements CloudAdapter {
     for (const f of ['save.json', 'inputs.jsonl', 'events.jsonl']) {
       const fp = path.join(this.dir, f)
       if (existsSync(fp)) rmSync(fp)
+    }
+  }
+
+  /** 归档链：events.2→events.3（最老丢弃）… events.jsonl→events.1，随后重写摘要（M3-13） */
+  private rotateEventLog(): void {
+    for (let g = this.archiveGens - 1; g >= 1; g--) {
+      const from = path.join(this.dir, g === 1 ? 'events.jsonl' : `events.${g - 1}.jsonl`)
+      const to = path.join(this.dir, `events.${g}.jsonl`)
+      if (!existsSync(from)) continue
+      rmSync(to, { force: true }) // Windows renameSync 不覆盖已存在目标
+      renameSync(from, to)
+    }
+    this.writeArchiveSummary()
+  }
+
+  /** 汇总全部归档代：每 kind 条数 + 时间范围（events-summary.json，排障与验收用） */
+  private writeArchiveSummary(): void {
+    try {
+      const counts: Record<string, number> = {}
+      let total = 0
+      let first: number | null = null
+      let last: number | null = null
+      for (let g = 1; g < this.archiveGens; g++) {
+        const f = path.join(this.dir, `events.${g}.jsonl`)
+        if (!existsSync(f)) continue
+        for (const line of readFileSync(f, 'utf8').split('\n')) {
+          if (!line) continue
+          try {
+            const e = JSON.parse(line) as { kind?: string; simTime?: number }
+            if (typeof e.kind !== 'string') continue
+            counts[e.kind] = (counts[e.kind] ?? 0) + 1
+            total++
+            if (typeof e.simTime === 'number') {
+              if (first === null || e.simTime < first) first = e.simTime
+              if (last === null || e.simTime > last) last = e.simTime
+            }
+          } catch {
+            // 单行损坏跳过（摘要容错）
+          }
+        }
+      }
+      writeFileSync(
+        path.join(this.dir, 'events-summary.json'),
+        JSON.stringify({ rotatedAt: Date.now(), total, first, last, counts }, null, 2),
+      )
+    } catch {
+      // 摘要失败不影响主流程
     }
   }
 }
