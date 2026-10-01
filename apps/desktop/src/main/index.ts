@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, Tray } from 'electron'
 import path from 'node:path'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { IpcChannels } from '../shared/protocol'
@@ -188,6 +189,32 @@ void app.whenReady().then(() => {
   app.on('second-instance', () => win?.show())
   win = createWindow()
   createTray()
+
+  // DEV 自检：SUCCULENT_SHOT=plain|journal|photo —— 启动数秒后 capturePage 截图并退出。
+  // 截图只写系统临时目录（隐私红线：永不入库）；journal/photo 会先派发对应按键再截。
+  const shotMode = process.env['SUCCULENT_SHOT']
+  if (shotMode) {
+    setTimeout(() => {
+      if (!win || win.isDestroyed()) return
+      const key = shotMode === 'journal' ? 'KeyJ' : shotMode === 'photo' ? 'KeyP' : null
+      if (key) {
+        void win.webContents.executeJavaScript(
+          `window.dispatchEvent(new KeyboardEvent('keydown', { code: '${key}', shiftKey: ${shotMode === 'photo'} }))`,
+        )
+      }
+      setTimeout(() => {
+        if (!win || win.isDestroyed()) return
+        void win.webContents
+          .capturePage()
+          .then((img) => {
+            const out = path.join(os.tmpdir(), `succulent-shot-${shotMode}-${Date.now()}.png`)
+            writeFileSync(out, img.toPNG())
+            console.info(`[shot] saved: ${out}`)
+          })
+          .finally(() => app.quit())
+      }, key ? 1500 : 0)
+    }, 7000)
+  }
 
   // A12：休眠/唤醒钩子（02 §1.4）——M0 只验证事件可达，时钟补算由 M3 的 SimulationClock 消费
   powerMonitor.on('suspend', () => console.info('[power] suspend'))
