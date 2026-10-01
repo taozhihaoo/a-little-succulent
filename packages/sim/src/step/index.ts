@@ -8,6 +8,7 @@ import type { InputEvent, PlantState, WorldState } from '../world'
 import { getSpecies } from '../species/registry'
 import { ECHEVERIA_SIGNS } from '../species/echeveria'
 import { stepSigns } from '../signs'
+import { offspringGenetics, pickFather } from '../genetics'
 import { sampleEnv } from '../env'
 
 export interface StepCtx {
@@ -100,11 +101,13 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
       if (ready) {
         ready.rooted = true
         const childId = plant.id + '-leafgo' + world.plants.length
+        // M6-1 杂交：同盆开花株可作父本，子代基因座 50/50 混合；无开花株则克隆母株
+        const genetics = offspringGenetics(plant, pickFather(world.plants, plant), ctx.rng)
         world.plants.push({
           id: childId,
           speciesId: plant.speciesId,
           seed: plant.seed + '-leafgo' + world.plants.length,
-          genome: plant.genome, // 叶插：遗传母株基因
+          genome: genetics.genome,
           bornSimTime: stepEnd,
           water: Math.min(1, plant.water + 0.2),
           stress: { light: 0, drought: 0, temp: 0 },
@@ -116,7 +119,10 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
           stems: [{ heightMm: 1, lignification: 0 }],
           counters: {},
         })
-        ctx.emit({ simTime: stepEnd, plantId: childId, kind: 'leafgo.rooted', tier: 'major', payload: { parentId: plant.id } })
+        ctx.emit({ simTime: stepEnd, plantId: childId, kind: 'leafgo.rooted', tier: 'major', payload: { parentId: plant.id, fatherId: genetics.fatherId } })
+        if (genetics.fatherId) {
+          ctx.emit({ simTime: stepEnd, plantId: childId, kind: 'cross.bred', tier: 'major', payload: { motherId: plant.id, fatherId: genetics.fatherId } })
+        }
       }
     }
     // 5) 迹象生命周期（M4 任务 7）：条件积分 → 相位推进 → 预算化事件
@@ -137,11 +143,13 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
         if (sign.id !== 'offset') return
         if (world.plants.length >= 8) return // Slot 上限（总方案 §34：首发少 Slot）
         const childId = `${parent.id}-offset${world.plants.length}`
+        // M6-1 杂交：同盆开花株可作父本（与叶插同规则）
+        const genetics = offspringGenetics(parent, pickFather(world.plants, parent), ctx.rng)
         world.plants.push({
           id: childId,
           speciesId: parent.speciesId,
           seed: `${parent.seed}|offset${world.plants.length}`,
-          genome: parent.genome, // 子株遗传母株基因（M6 杂交前的简化遗传）
+          genome: genetics.genome,
           bornSimTime: simTime,
           water: parent.water,
           stress: { light: 0, drought: 0, temp: 0 },
@@ -153,6 +161,9 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
           stems: [{ heightMm: 2, lignification: 0 }],
           counters: {},
         })
+        if (genetics.fatherId) {
+          ctx.emit({ simTime, plantId: childId, kind: 'cross.bred', tier: 'major', payload: { motherId: parent.id, fatherId: genetics.fatherId } })
+        }
       },
     )
 
