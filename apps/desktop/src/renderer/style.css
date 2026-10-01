@@ -143,7 +143,7 @@ body {
   right: 10px;
   top: 10px;
   width: 248px;
-  max-height: 72vh;
+  max-height: 92vh;
   overflow-y: auto;
   background: rgba(12, 16, 12, 0.92);
   border: 1px solid rgba(140, 200, 140, 0.25);
@@ -152,6 +152,12 @@ body {
   font: 12px/1.6 'Segoe UI', 'Microsoft YaHei', sans-serif;
   color: #dfe7dd;
   z-index: 30;
+}
+
+/* 时间线/成就区各自滚动：头、成就标题、种子码按钮常驻可见（M7 正式版入口） */
+.journal-panel .j-list {
+  max-height: 34vh;
+  overflow-y: auto;
 }
 
 .journal-panel::-webkit-scrollbar {
@@ -220,4 +226,111 @@ body {
 .j-empty {
   color: #8fa08f;
   padding: 8px 0;
+}
+
+/* M7-3 设置面板 */
+.settings-panel {
+  position: fixed;
+  right: 10px;
+  top: 10px;
+  width: 248px;
+  background: rgba(12, 16, 12, 0.94);
+  border: 1px solid rgba(140, 200, 140, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 12px/1.6 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  color: #dfe7dd;
+  z-index: 35;
+}
+
+.settings-panel .s-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.settings-panel .s-label {
+  flex: none;
+  width: 64px;
+  color: #9fd4a0;
+}
+
+.settings-panel input[type='range'] {
+  flex: 1;
+  accent-color: #7cba7c;
+}
+
+.settings-panel .s-val {
+  flex: none;
+  width: 38px;
+  text-align: right;
+  font-size: 11px;
+  color: #8fa08f;
+}
+
+.settings-panel input[type='checkbox'] {
+  accent-color: #7cba7c;
+}
+
+.settings-panel .s-danger {
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 0;
+  background: rgba(200, 90, 80, 0.14);
+  border: 1px solid rgba(220, 110, 100, 0.3);
+  color: #e0a49c;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.settings-panel .s-danger:hover {
+  background: rgba(200, 90, 80, 0.26);
+}
+
+.settings-panel .s-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #6f7f6f;
+}
+
+/* Journal：成就区 + 种子码入口（M7 正式版入口） */
+.j-ach-head {
+  border-top: 1px solid rgba(140, 200, 140, 0.2);
+  margin-top: 8px;
+  padding: 8px 0 2px;
+  color: #9fd4a0;
+}
+
+.j-ach-row {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.j-ach-row.locked {
+  opacity: 0.45;
+}
+
+.j-foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.j-foot button {
+  flex: 1;
+  padding: 5px 0;
+  background: rgba(120, 180, 120, 0.12);
+  border: 1px solid rgba(140, 200, 140, 0.28);
+  color: #cfe3cc;
+  border-radius: 5px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.j-foot button:hover {
+  background: rgba(120, 180, 120, 0.26);
 }

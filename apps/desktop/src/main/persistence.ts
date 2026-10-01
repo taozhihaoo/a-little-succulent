@@ -8,15 +8,26 @@
  */
 import { app, ipcMain } from 'electron'
 import path from 'node:path'
+import { cpSync, existsSync } from 'node:fs'
 import { IpcChannels } from '../shared/protocol'
 import { createCloudAdapter, type CloudAdapter } from './cloud'
 
 let cloud: CloudAdapter | undefined
 
-export function initPersistence(): void {
+export function initPersistence(): string {
   // soak 模式独立存档目录，不污染日常验收植物
   const base = process.env.SUCCULENT_SOAK ? path.join(app.getPath('userData'), 'soak-save') : app.getPath('userData')
-  cloud = createCloudAdapter(path.join(base, 'succulent-save'))
+  const saveDir = path.join(base, 'succulent-save')
+
+  // 打包版 productName 与 dev 包名不同 → userData 路径不同。首次启动一次性迁移旧存档，
+  // 保住用户的植株（原件保留防回滚）。dev 下两者同路径，此分支自然不触发。
+  const legacySave = path.join(app.getPath('appData'), '@succulent', 'desktop', 'succulent-save')
+  if (saveDir !== legacySave && !existsSync(path.join(saveDir, 'save.json')) && existsSync(path.join(legacySave, 'save.json'))) {
+    cpSync(legacySave, saveDir, { recursive: true })
+    console.info('[persist] 已从 dev 旧目录迁移存档:', legacySave)
+  }
+
+  cloud = createCloudAdapter(saveDir)
 
   ipcMain.handle(IpcChannels.PersistenceLoad, () => cloud!.load())
 
@@ -31,4 +42,5 @@ export function initPersistence(): void {
 
   // dev 危险操作：清除全部存档（Console 重置按钮）
   ipcMain.handle(IpcChannels.PersistenceReset, () => cloud!.reset())
+  return saveDir
 }

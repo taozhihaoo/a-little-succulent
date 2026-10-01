@@ -6,6 +6,8 @@ import {
   judgeWallDelta,
   parseSave,
   reanchorSimTime,
+  decodeSeedCode,
+  encodeSeedCode,
   type InputEvent,
   type SimEvent,
   makeJitteredGenome,
@@ -13,6 +15,8 @@ import {
 } from '@succulent/sim'
 import { mountConsole, unmountConsole } from '../dev/console'
 import { ACHIEVEMENT_DEFS, achievementsForEvent, derivedAchievements } from '../shared/achievements'
+import { appendSeedling, type SeedlingPlant } from '../shared/seedling'
+import { mountSettings, settingsBounds } from './settings'
 import {
   createSceneRoot,
   makeHitTester,
@@ -363,13 +367,55 @@ function renderJournal(): void {
       return `<div class="j-row"><span class="j-dot tier-${m.tier}"></span><div><div class="j-text">${text}</div><div class="j-time">${time}</div></div></div>`
     })
     .join('')
+  const unlockedCount = ACHIEVEMENT_DEFS.filter((d) => unlockedAchievements.has(d.id)).length
+  const ach = ACHIEVEMENT_DEFS.map((d) =>
+    unlockedAchievements.has(d.id)
+      ? `<div class="j-ach-row"><span class="j-dot tier-major"></span><div><div class="j-text">🏆 ${d.title}</div><div class="j-time">${d.desc}</div></div></div>`
+      : `<div class="j-ach-row locked"><span class="j-dot tier-micro"></span><div><div class="j-text">？？？</div><div class="j-time">${d.desc}</div></div></div>`,
+  ).join('')
   journal.innerHTML =
     `<div class="j-head"><span>时间线 · ${collapsed.length} 条</span><button class="j-close" title="关闭">×</button></div>` +
-    (rows || '<div class="j-empty">还没有记录——陪伴它的日子，都会在这里留下痕迹</div>')
+    `<div class="j-list">` +
+    (rows || '<div class="j-empty">还没有记录——陪伴它的日子，都会在这里留下痕迹</div>') +
+    '</div>' +
+    `<div class="j-ach-head">🏆 成就 ${unlockedCount}/${ACHIEVEMENT_DEFS.length}</div>` +
+    `<div class="j-list">${ach}</div>` +
+    '<div class="j-foot"><button data-j="seed">🌱 种子码</button><button data-j="import">导入</button></div>'
 }
 
 journal.addEventListener('click', (e) => {
-  if (e.target instanceof HTMLElement && e.target.classList.contains('j-close')) closeJournal()
+  const t = e.target as HTMLElement
+  if (t.classList.contains('j-close')) return closeJournal()
+  const act = t.dataset?.j
+  if (!act || !engine) return
+  if (act === 'seed') {
+    const p = engine.world.plants[0]
+    if (!p) return
+    // prompt 同时承担展示与复制（clipboard API 失败也不丢码）
+    window.prompt(
+      '种子码（聚焦后 Ctrl+C 复制，发给别人即可在他们的盆里重建这株）：',
+      encodeSeedCode({ speciesId: p.speciesId, seed: p.seed, genome: p.genome }),
+    )
+  }
+  if (act === 'import') {
+    const raw = window.prompt('粘贴种子码：')
+    if (!raw) return
+    const decoded = decodeSeedCode(raw)
+    if (!decoded) {
+      toast('种子码无效（校验未通过）')
+      return
+    }
+    const err = appendSeedling(engine.world.plants as unknown as SeedlingPlant[], decoded, engine.simTime)
+    if (err) {
+      toast(err)
+      return
+    }
+    toast('🌱 一株新的多肉来到了你的盆里')
+    sync()
+    scheduler.invalidate()
+    checkpoint()
+    renderJournal()
+  }
 })
 
 window.addEventListener('keydown', (e) => {
@@ -387,6 +433,21 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
+// M7-3 设置面板（S 键 / 托盘"设置"）：正式版用户设置入口
+let passthroughWhenIdle = true
+mountSettings({
+  bridge,
+  applyContentScale: (scale) => container.style.setProperty('zoom', String(scale)),
+  applyPassthrough: (v) => {
+    passthroughWhenIdle = v
+  },
+  toast,
+})
+void bridge.getSettings().then((s) => {
+  container.style.setProperty('zoom', String(s.windowScale))
+  passthroughWhenIdle = s.passthroughWhenIdle
+})
+
 // A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
 const hitTest = makeHitTester(root)
 
@@ -401,9 +462,15 @@ function overRect(x: number, y: number, el: HTMLElement): boolean {
   return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
 }
 
+function overSettings(x: number, y: number): boolean {
+  const b = settingsBounds()
+  return b !== null && x >= b.left && x <= b.right && y >= b.top && y <= b.bottom
+}
+
 container.addEventListener('pointermove', (e) => {
-  // DOM 面板（右键菜单/Journal）悬停时保持接收鼠标，否则会被穿透
-  const overPanel = overRect(e.clientX, e.clientY, journal) || overRect(e.clientX, e.clientY, menu)
+  // DOM 面板（右键菜单/Journal/设置）悬停时保持接收鼠标，否则会被穿透
+  const overPanel =
+    overRect(e.clientX, e.clientY, journal) || overRect(e.clientX, e.clientY, menu) || overSettings(e.clientX, e.clientY)
   if (dragging) {
   if (menuOpen) return
     if (moveQueued) return
@@ -414,7 +481,8 @@ container.addEventListener('pointermove', (e) => {
     })
     return
   }
-  bridge.setIgnoreMouseEvents(!overPanel && !hitTest(e.clientX, e.clientY))
+  // M7-3：用户关闭空白穿透后整窗可交互（方便拖动/触控）
+  bridge.setIgnoreMouseEvents(passthroughWhenIdle ? !overPanel && !hitTest(e.clientX, e.clientY) : false)
 })
 
 container.addEventListener('pointerdown', (e) => {

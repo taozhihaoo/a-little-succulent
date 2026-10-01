@@ -16,3 +16,7 @@ win-*.ps1
 .fix*.mjs
 .w[A-Z].mjs
 .m2-*.mjs
+apps/desktop/distA
+apps/desktop/distB
+apps/desktop/dist-pkg
+apps/desktop/release

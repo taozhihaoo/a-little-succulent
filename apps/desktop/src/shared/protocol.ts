@@ -25,9 +25,37 @@ export const IpcChannels = {
   AppFlushDone: 'app:flush-done',
   /** renderer → main：清除全部存档文件（dev 危险操作） */
   PersistenceReset: 'persistence:reset',
+  /** renderer → main：读取用户设置（M7-3） */
+  SettingsGet: 'settings:get',
+  /** renderer → main：部分更新设置（主进程应用+原子持久化） */
+  SettingsSet: 'settings:set',
+  /** main → renderer：设置已变更（推送新值） */
+  SettingsChanged: 'settings:changed',
+  /** main → renderer：托盘"设置"菜单项（打开设置面板） */
+  AppOpenSettings: 'app:open-settings',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]
+
+/** 用户设置（M7-3）。主进程独有 settings.json——save.json 的唯一写入方是 renderer 检查点流，
+ *  而窗口属性主进程启动期就要读，双写会引入竞争。 */
+export interface AppSettings {
+  /** 窗口/内容缩放 0.6~1.4（1 = 基准 380×460） */
+  windowScale: number
+  /** 整窗不透明度 0.4~1.0 */
+  opacity: number
+  /** 开机自启（仅打包版生效） */
+  launchAtLogin: boolean
+  /** 空白处鼠标穿透（false = 整窗可拖动/点击） */
+  passthroughWhenIdle: boolean
+}
+
+export const DEFAULT_SETTINGS: AppSettings = {
+  windowScale: 1,
+  opacity: 1,
+  launchAtLogin: false,
+  passthroughWhenIdle: true,
+}
 
 /** preload 暴露给 renderer 的最小桥 */
 /** 存档载荷（02 §6.4 载入流程的输入） */
@@ -52,4 +80,8 @@ export interface DesktopBridge {
   onFullscreen(cb: (fullscreen: boolean) => void): void
   sendFlushDone(): void
   resetSave(): Promise<void>
+  getSettings(): Promise<AppSettings>
+  setSettings(patch: Partial<AppSettings>): Promise<AppSettings>
+  onSettingsChanged(cb: (s: AppSettings) => void): void
+  onOpenSettings(cb: () => void): void
 }

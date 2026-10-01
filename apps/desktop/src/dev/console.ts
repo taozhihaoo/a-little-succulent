@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three'
 import { decodeSeedCode, encodeSeedCode } from '@succulent/sim'
+import { appendSeedling, type SeedlingPlant } from '../shared/seedling'
 import type { DesktopBridge } from '../shared/protocol'
 
 export interface ConsoleEngine {
@@ -98,40 +99,11 @@ export function mountConsole(deps: ConsoleDeps): void {
         window.alert('种子码无效（校验未通过）')
         return
       }
-      const plants = engine.world.plants as {
-        id: string
-        speciesId: string
-        seed: string
-        genome: { values: Record<string, number> }
-        bornSimTime: number
-        water: number
-        stress: { light: number; drought: number; temp: number }
-        stretch: number
-        seasonPhase: number
-        leaves: { bornSimTime: number; ringIndex: number; maturity: number; turgor: number; colorState: number; damage: number; rand: number }[]
-        stems: { heightMm: number; lignification: number }[]
-        counters: Record<string, number>
-      }[]
-      if (plants.length >= 8) {
-        window.alert('盆已满（Slot 上限 8）')
+      const err = appendSeedling(engine.world.plants as unknown as SeedlingPlant[], decoded, engine.simTime)
+      if (err) {
+        window.alert(err)
         return
       }
-      plants.push({
-        id: `${decoded.seed}-shared${plants.length}`,
-        speciesId: decoded.speciesId,
-        seed: decoded.seed,
-        genome: decoded.genome,
-        bornSimTime: engine.simTime,
-        water: 0.7,
-        stress: { light: 0, drought: 0, temp: 0 },
-        stretch: 0,
-        seasonPhase: 0,
-        leaves: [
-          { bornSimTime: engine.simTime, ringIndex: 0, maturity: 0.3, turgor: 1, colorState: 0, damage: 0, rand: 0.5 },
-        ],
-        stems: [{ heightMm: 2, lignification: 0 }],
-        counters: {},
-      })
       deps.onWorldChanged?.()
     }
   })

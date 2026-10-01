@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, powerMonitor, screen, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, net, protocol, powerMonitor, screen, Tray } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { IpcChannels } from '../shared/protocol'
+import { IpcChannels, type AppSettings } from '../shared/protocol'
 import { initPersistence } from './persistence'
+import { getSettings, initSettings, updateSettings } from './settings'
 import { startFullscreenWatcher } from './fullscreen'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -44,8 +45,11 @@ function saveBounds(win: BrowserWindow): void {
 // 不可见并完全停止合成——桌面挂件会被"永久隐身"。禁用它；资源调度由渲染三态自己负责。
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 
-// TODO(M0)：WindowController / TrayController / PowerMonitor 按职责拆分（07 §5），
-// 随 A7/A8 落地再拆，先保持单文件最小可跑（05 §3）。
+// 打包版 renderer 走 app:// 自定义协议：file:// 下 <script type="module"> 会被 CORS 拦截，
+// 页面全空（打包版实测全透明截图）。standard+secure 才能以相对路径加载 ESM 产物。
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+])
 
 // A11：单实例锁——二次启动聚焦已有窗口（开机自启动随设置 UI 落地，默认关：总方案 §52 最少权限）
 if (!app.requestSingleInstanceLock()) {
@@ -56,9 +60,10 @@ let win: BrowserWindow | undefined
 let tray: Tray | undefined
 
 function createWindow(): BrowserWindow {
+  const settings = getSettings()
   const w = new BrowserWindow({
-    width: 380,
-    height: 460,
+    width: Math.round(380 * settings.windowScale),
+    height: Math.round(460 * settings.windowScale),
     ...loadBounds(),
     transparent: true,
     frame: false,
@@ -76,6 +81,7 @@ function createWindow(): BrowserWindow {
     },
   })
 
+  w.setOpacity(settings.opacity)
   w.once('ready-to-show', () => {
     w.show()
     const pos = w.getPosition()
@@ -112,7 +118,7 @@ function createWindow(): BrowserWindow {
   if (devUrl) {
     void w.loadURL(devUrl)
   } else {
-    void w.loadFile(path.join(dirname, '../renderer/index.html'))
+    void w.loadURL('app://renderer/index.html')
   }
   return w
 }
@@ -132,6 +138,7 @@ function createTray(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '显示', click: () => win?.show() },
+      { label: '设置', click: () => win?.webContents.send(IpcChannels.AppOpenSettings) },
       { type: 'separator' },
       { label: '退出', click: () => app.quit() },
     ]),
@@ -179,8 +186,27 @@ ipcMain.on(IpcChannels.FocusWindow, () => {
   }
 })
 
+// M7-3 用户设置：读 + 部分更新（主进程应用 + 原子落盘 + 推送 renderer）
+ipcMain.handle(IpcChannels.SettingsGet, () => getSettings())
+ipcMain.handle(IpcChannels.SettingsSet, (_event, patch: unknown) => {
+  const next = updateSettings(win, (patch ?? {}) as Partial<AppSettings>)
+  win?.webContents.send(IpcChannels.SettingsChanged, next)
+  return next
+})
+
 void app.whenReady().then(() => {
-  initPersistence()
+  // app:// → out/renderer/ 静态文件
+  const rendererDir = path.join(dirname, '../renderer')
+  protocol.handle('app', (request) => {
+    const u = new URL(request.url)
+    let rel = decodeURIComponent(u.pathname)
+    if (rel === '/' || rel === '') rel = '/index.html'
+    return net.fetch(pathToFileURL(path.join(rendererDir, rel)).toString())
+  })
+
+  const saveDir = initPersistence()
+  initSettings(saveDir)
+
   // A13：全屏应用检测 -> 强制 DeepIdle（渲染三态，02 §4）
   startFullscreenWatcher(
     () => win,
@@ -190,13 +216,14 @@ void app.whenReady().then(() => {
   win = createWindow()
   createTray()
 
-  // DEV 自检：SUCCULENT_SHOT=plain|journal|photo —— 启动数秒后 capturePage 截图并退出。
-  // 截图只写系统临时目录（隐私红线：永不入库）；journal/photo 会先派发对应按键再截。
+  // DEV 自检：SUCCULENT_SHOT=plain|journal|settings|photo —— 启动数秒后 capturePage 截图并退出。
+  // 截图只写系统临时目录（隐私红线：永不入库）；journal/settings/photo 会先派发对应按键再截。
   const shotMode = process.env['SUCCULENT_SHOT']
   if (shotMode) {
     setTimeout(() => {
       if (!win || win.isDestroyed()) return
-      const key = shotMode === 'journal' ? 'KeyJ' : shotMode === 'photo' ? 'KeyP' : null
+      const key =
+        shotMode === 'journal' ? 'KeyJ' : shotMode === 'settings' ? 'KeyS' : shotMode === 'photo' ? 'KeyP' : null
       if (key) {
         void win.webContents.executeJavaScript(
           `window.dispatchEvent(new KeyboardEvent('keydown', { code: '${key}', shiftKey: ${shotMode === 'photo'} }))`,
