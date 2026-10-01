@@ -45,7 +45,15 @@ async function applyInput(input: InputEvent): Promise<void> {
 
 // M4-8：多植株渲染——母株居中（露珠仅母株），子株按 Slot 顺序排右侧
 const plantRenderers = new Map<string, { renderer: PlantRenderer; slot: number }>()
-const SLOT_GAP = 115 // mm
+const SLOT_GAP = 88 // mm（M5-6 紧凑化：群生感）
+
+/** M5-6：按 id 哈希的稳定 z 偏移（[-12,12]mm）——存档重载后群生布局不变 */
+function plantJitter(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return (((h >>> 0) % 1000) / 999 - 0.5) * 24
+}
+
 const parentRenderer = (): PlantRenderer => plantRenderers.values().next().value!.renderer
 
 function sync(): void {
@@ -65,7 +73,13 @@ function sync(): void {
       const renderer = new PlantRenderer(root.scene, i === 0, scheduler)
       entry = { renderer, slot: i }
       plantRenderers.set(plant.id, entry)
-      renderer.group.position.x = i === 0 ? 0 : 95 + (i - 1) * SLOT_GAP
+      const scale = i === 0 ? 1 : 0.85 // M5-6：子株微缩，母株为主角
+      renderer.group.scale.setScalar(scale)
+      renderer.group.position.set(
+        i === 0 ? 0 : 95 + (i - 1) * SLOT_GAP,
+        0,
+        i === 0 ? 0 : plantJitter(plant.id),
+      )
       hitTest.rescan()
     }
     entry.renderer.update(eng.latestSnapshot(plant.id))
