@@ -12,7 +12,7 @@ export async function buildMain() {
     platform: 'node',
     format: 'esm',
     target: 'node20',
-    external: ['electron'],
+    external: ['electron', 'koffi'],
     outfile: path.join(appRoot, 'out/main/index.js'),
     sourcemap: 'inline',
   })
