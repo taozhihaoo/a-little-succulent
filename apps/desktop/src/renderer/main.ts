@@ -5,6 +5,7 @@ import {
   gridTarget,
   judgeWallDelta,
   parseSave,
+  reanchorSimTime,
   type InputEvent,
   type SimEvent,
   makeJitteredGenome,
@@ -114,6 +115,12 @@ async function bootSim(): Promise<void> {
           eventSeq,
           inputSeq: save.inputWalOffset,
         })
+        // 超前再锚定（M5 长期成立）：快进调试可能让模拟时间跑到墙钟之后，
+        // 追赶会永久空转——整体平移回墙钟（所有时长语义不变），再走墙钟追赶
+        const drift = reanchorSimTime(save.world, Date.now())
+        if (drift > 0) {
+          console.warn(`[sim] 模拟时间超前墙钟 ${Math.round(drift / DAY)} 天——已再锚定回当前时间`)
+        }
         // 墙钟追赶 + 回拨保护（02 §1.2 / §1.4）
         const verdict = judgeWallDelta(save.lastWallSeen, Date.now())
         if (verdict.status === 'ok') {
@@ -295,17 +302,27 @@ function renderJournal(): void {
     )
     .slice(-60)
     .reverse()
-  const rows = moments
-    .map((ev) => {
-      const t = new Date(ev.simTime)
-      const pad = (n: number): string => String(n).padStart(2, '0')
+  // 同类连续事件折叠（缺水等慢性事件会连发刷屏），只显示最近一条并计 ×N
+  const collapsed: Array<{ kind: string; simTime: number; tier: string; count: number }> = []
+  for (const ev of moments) {
+    const top = collapsed[collapsed.length - 1]
+    if (top && top.kind === ev.kind) {
+      top.count++
+    } else {
+      collapsed.push({ kind: ev.kind, simTime: ev.simTime, tier: ev.tier, count: 1 })
+    }
+  }
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  const rows = collapsed
+    .map((m) => {
+      const t = new Date(m.simTime)
       const time = `${t.getMonth() + 1}月${t.getDate()}日 ${pad(t.getHours())}:${pad(t.getMinutes())}`
-      const text = JOURNAL_TEXT[ev.kind] ?? (ev.kind.endsWith('.critical') ? '似乎有什么要发生了…' : ev.kind)
-      return `<div class="j-row"><span class="j-dot tier-${ev.tier}"></span><div><div class="j-text">${text}</div><div class="j-time">${time}</div></div></div>`
+      const text = (JOURNAL_TEXT[m.kind] ?? (m.kind.endsWith('.critical') ? '似乎有什么要发生了…' : m.kind)) + (m.count > 1 ? ` ×${m.count}` : '')
+      return `<div class="j-row"><span class="j-dot tier-${m.tier}"></span><div><div class="j-text">${text}</div><div class="j-time">${time}</div></div></div>`
     })
     .join('')
   journal.innerHTML =
-    `<div class="j-head"><span>时间线 · ${moments.length} 条</span><button class="j-close" title="关闭">×</button></div>` +
+    `<div class="j-head"><span>时间线 · ${collapsed.length} 条</span><button class="j-close" title="关闭">×</button></div>` +
     (rows || '<div class="j-empty">还没有记录——陪伴它的日子，都会在这里留下痕迹</div>')
 }
 
