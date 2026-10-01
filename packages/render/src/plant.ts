@@ -257,9 +257,9 @@ export class PlantRenderer {
     if (this.soilMaterial) {
       // 湿度联动土面：湿则深、干则浅（04 §6）
       this.soilMaterial.color.setRGB(
-        0.10 + 0.22 * snapshot.water,
-        0.13 + 0.1 * snapshot.water,
-        0.05 + 0.10 * snapshot.water,
+        0.30 - 0.20 * snapshot.water,
+        0.24 - 0.16 * snapshot.water,
+        0.18 - 0.12 * snapshot.water,
       )
     }
     const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`

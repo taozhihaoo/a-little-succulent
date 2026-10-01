@@ -346,6 +346,7 @@ window.addEventListener('keydown', (e) => {
     if (plant) {
       const genome = makeJitteredGenome(createRng(SEED + (styleVivid ? '|vivid' : '|genome')), base)
       plant.genome.values = genome.values
+      engine.refresh()
     }
     sync()
     scheduler.invalidate()

@@ -34,6 +34,8 @@ export interface SimEngine {
 
   /** 渲染层唯一数据来源（缓存语义：随时可同步读取） */
   latestSnapshot(plantId?: string): PhenotypeSnapshot
+  /** 清快照缓存（外部 genome 突变后调用） */
+  refresh(): void
 
   /** 检查点，不含几何（02 §6.1） */
   checkpoint(): SaveFile
@@ -128,6 +130,11 @@ class InProcessSimEngine implements SimEngine {
     snap ??= derivePhenotype(plant, this._world.simTime, GENERATOR_VERSION, this._world.env)
     this.snapshotCache.set(plant.id, snap)
     return snap
+  }
+
+  /** 外部状态突变（如风格预览换基因）后清快照缓存；无参时防御性空实现 */
+  refresh(): void {
+    this.snapshotCache.clear()
   }
 
   checkpoint(): SaveFile {
