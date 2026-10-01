@@ -170,8 +170,9 @@ describe('花芽前兆（M4 任务 10）', () => {
     matureEngine.advance(80 * DAY, Number.MAX_SAFE_INTEGER)
     // 成熟株可能进入迹象链（取决春相与光照），但绝不会在 <16 叶时发生
     const spikeEvents = matureEngine.events.filter((e) => e.kind.startsWith('sign.flowerSpike'))
-    for (const ev of spikeEvents) {
+    for (const spikeEvent of spikeEvents) {
       const plant = mature.plants[0]!
+      void spikeEvent
       const alive = plant.leaves.filter((l) => !l.droppedSimTime).length
       expect(alive).toBeGreaterThanOrEqual(14)
     }
