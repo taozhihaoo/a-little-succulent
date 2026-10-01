@@ -223,6 +223,18 @@ setInterval(() => {
   if (journalOpen) renderJournal()
 }, 30_000)
 
+// M7-4 素材导出：SUCCULENT_TIMELAPSE 模式下主进程经 postMessage 驱动的单日推进。
+// 未设环境变量时无人发此消息，零副作用；不落检查点（素材进程即弃）。
+window.addEventListener('message', (e) => {
+  // Electron webContents.postMessage 把通道名放在 e.channel；window.postMessage 则在 e.data
+  const ch = (e as MessageEvent & { channel?: string }).channel
+  if ((ch === 'succulent:advance-day' || e.data === 'succulent:advance-day') && engine) {
+    engine.advance(engine.simTime + DAY, Number.MAX_SAFE_INTEGER)
+    sync()
+    scheduler.invalidate()
+  }
+})
+
 // dev：] = 快进 7 模拟日 + 立即检查点（快进必须可持久化）
 window.addEventListener('keydown', (e) => {
   if (!import.meta.env.DEV || !engine) return

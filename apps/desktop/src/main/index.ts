@@ -222,6 +222,13 @@ void app.whenReady().then(() => {
   if (shotMode) {
     setTimeout(() => {
       if (!win || win.isDestroyed()) return
+      if (shotMode === 'sheet') {
+        // 联系表批量出图（DEV；Shift+C 挂载联系表）→ 大视口截图
+        win.setBounds({ width: 1440, height: 1000 })
+        void win.webContents.executeJavaScript(
+          "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC', shiftKey: true }))",
+        )
+      }
       const key =
         shotMode === 'journal' ? 'KeyJ' : shotMode === 'settings' ? 'KeyS' : shotMode === 'photo' ? 'KeyP' : null
       if (key) {
@@ -239,8 +246,38 @@ void app.whenReady().then(() => {
             console.info(`[shot] saved: ${out}`)
           })
           .finally(() => app.quit())
-      }, key ? 1500 : 0)
+      }, shotMode === 'sheet' ? 5000 : key ? 1500 : 0)
     }, 7000)
+  }
+
+  // M7-4 素材导出：SUCCULENT_TIMELAPSE=<天数> —— 每模拟日一帧（postMessage 推进 → 截图），
+  // 帧序列写系统临时目录 timelapse/（隐私红线：永不入库），完成后自动退出。
+  const timelapseDays = Number.parseInt(process.env['SUCCULENT_TIMELAPSE'] ?? '', 10)
+  if (Number.isFinite(timelapseDays) && timelapseDays > 0) {
+    const dir = path.join(os.tmpdir(), 'succulent-timelapse')
+    mkdirSync(dir, { recursive: true })
+    let day = 0
+    const step = (): void => {
+      if (day >= timelapseDays || !win || win.isDestroyed()) {
+        console.info(`[timelapse] done: ${day} frames in ${dir}`)
+        app.quit()
+        return
+      }
+      win.webContents.postMessage('succulent:advance-day', '*')
+      setTimeout(() => {
+        if (!win || win.isDestroyed()) return
+        void win.webContents
+          .capturePage()
+          .then((img) => {
+            writeFileSync(path.join(dir, `frame-${String(day).padStart(4, '0')}.png`), img.toPNG())
+          })
+          .then(() => {
+            day += 1
+            step()
+          })
+      }, 700)
+    }
+    setTimeout(step, 8000) // 等首帧渲染稳定
   }
 
   // A12：休眠/唤醒钩子（02 §1.4）——M0 只验证事件可达，时钟补算由 M3 的 SimulationClock 消费
