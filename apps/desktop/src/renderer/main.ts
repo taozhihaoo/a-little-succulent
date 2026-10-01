@@ -10,6 +10,7 @@ import {
   makeJitteredGenome,
   ECHEVERIA_VIVID_GENOME,
 } from '@succulent/sim'
+import { mountConsole, unmountConsole } from '../dev/console'
 import {
   createSceneRoot,
   makeHitTester,
@@ -132,6 +133,7 @@ void bootSim()
 // —— dev：昼夜预览与一日延时的互斥状态 ——
 const DAY_PREVIEW = [0.31, 0.5, 0.69, 0.97]
 let previewIdx = -1
+let consoleMounted = false
 let lapseActive = false
 let lapseStartMs = 0
 let lapseBasePhase = 0
@@ -194,6 +196,27 @@ window.addEventListener('keydown', (e) => {
 // dev：K = 四相昼夜预览锁定；L = 一日延时。任一激活会取消另一个。
 window.addEventListener('keydown', (e) => {
   if (!import.meta.env.DEV || !engine) return
+  if (e.code === 'KeyI' && !e.shiftKey) {
+    if (consoleMounted) {
+      unmountConsole()
+      consoleMounted = false
+    } else {
+      mountConsole({
+        bridge,
+        getEngine: () => engine,
+        advanceDays: (days) => {
+          if (!engine) return
+          engine.advance(engine.simTime + days * DAY, Number.MAX_SAFE_INTEGER)
+          sync()
+          scheduler.invalidate()
+          checkpoint()
+        },
+        checkpoint: () => checkpoint(),
+      })
+      consoleMounted = true
+    }
+    return
+  }
   if (e.code === 'KeyL' && !e.shiftKey) {
     lapseActive = !lapseActive
     previewIdx = -1

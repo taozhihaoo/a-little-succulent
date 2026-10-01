@@ -72,7 +72,8 @@ export function derivePhenotype(
   // 基因红边晕：绚丽的底色，不依赖应激（真实拟石莲的粉边是天生）
   const blush = g('edgeContrast') * 0.3
   const stressWithBlush = Math.min(1, stressAmount + blush)
-    const pal = paletteFor(g('palette'))
+    // 旧存档无 palette 基因：默认 0 = 自然绿（g() 的 0.5 缺省会命中白色板）
+    const pal = paletteFor(plant.genome.values['palette'] ?? 0)
     const mixC = (
       a: [number, number, number],
       b: [number, number, number],

@@ -122,8 +122,14 @@ export class PlantRenderer {
   /** 浇水视觉：数颗水滴从上方落下（约 0.6s） */
   waterBurst(nowMs: number): void {
     if (this.waterDrops.length > 0) return
-    const geo = new THREE.SphereGeometry(1.4, 8, 8)
-    const mat = new THREE.MeshPhysicalMaterial({ color: 0x9fd4ff, roughness: 0.1, transparent: true, opacity: 0.85 })
+    const geo = new THREE.SphereGeometry(1.1, 8, 8)
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: 0xbfe4f2,
+      roughness: 0.05,
+      transparent: true,
+      opacity: 0.45,
+      clearcoat: 1,
+    })
     for (let i = 0; i < 5; i++) {
       const mesh = new THREE.Mesh(geo, mat)
       const x = (Math.random() - 0.5) * 24
@@ -251,9 +257,9 @@ export class PlantRenderer {
     if (this.soilMaterial) {
       // 湿度联动土面：湿则深、干则浅（04 §6）
       this.soilMaterial.color.setRGB(
-        0.16 + 0.13 * snapshot.water,
+        0.10 + 0.22 * snapshot.water,
         0.13 + 0.1 * snapshot.water,
-        0.09 + 0.07 * snapshot.water,
+        0.05 + 0.10 * snapshot.water,
       )
     }
     const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`
