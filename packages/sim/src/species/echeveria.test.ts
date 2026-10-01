@@ -26,7 +26,7 @@ describe('echeveria 基因（04 §3）', () => {
   it('默认集键与 04 §13 一致', () => {
     expect(Object.keys(ECHEVERIA_DEFAULT_GENOME).sort()).toEqual(
       [
-        'baseHue', 'curvature', 'droughtDecay', 'edgeContrast', 'farina', 'gloss',
+        'baseHue', 'curvature', 'droughtDecay', 'edgeContrast', 'farina', 'gloss', 'palette',
         'growthRate', 'leafDensity', 'leafLength', 'leafThickness', 'leafWidth',
         'openness', 'outerOpen', 'phylloJitter', 'rosetteCompact', 'stressColorPropensity',
         'stressHue', 'stretchPropensity', 'tipSharpness', 'waterTolerance',

@@ -1,4 +1,5 @@
 /** PhenotypeSnapshot（02 §3.3）：模拟 → 渲染的唯一桥梁。纯参数，不含网格。 */
+import { paletteFor } from '../species/palettes'
 import { sampleEnv } from '../env'
 import type { OrganPose } from '../species'
 import type { EnvConfig } from '../world'
@@ -77,6 +78,17 @@ export function derivePhenotype(
   // 基因红边晕：绚丽的底色，不依赖应激（真实拟石莲的粉边是天生）
   const blush = g('edgeContrast') * 0.3
   const stressWithBlush = Math.min(1, stressAmount + blush)
+    const pal = paletteFor(g('palette'))
+    const mixC = (
+      a: [number, number, number],
+      b: [number, number, number],
+      t: number,
+    ): [number, number, number] => [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t,
+    ]
+
   return {
     plantId: plant.id,
     simTime,
@@ -85,10 +97,10 @@ export function derivePhenotype(
     water: plant.water,
     stretch: plant.stretch,
     material: {
-      baseColor: hslToRgb(0.28 + 0.17 * g('baseHue'), 0.65, 0.3),
-      youngColor: hslToRgb(0.31 + 0.17 * g('baseHue'), 0.6, 0.44),
-      matureColor: hslToRgb(0.26 + 0.17 * g('baseHue'), 0.72, 0.24),
-      stressColor: hslToRgb(0.83 + 0.12 * g('stressHue'), 0.75, 0.55),
+      baseColor: pal.base,
+      youngColor: mixC(pal.base, [0.93, 0.95, 0.82], 0.45),
+      matureColor: mixC(pal.base, [0.1, 0.16, 0.12], 0.35),
+      stressColor: pal.tip,
       farina: g('farina'),
       gloss: g('gloss'),
       edgeContrast: g('edgeContrast'),

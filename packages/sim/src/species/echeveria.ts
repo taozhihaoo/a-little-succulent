@@ -20,6 +20,8 @@ const GOLDEN_ANGLE = 2.399963229728653
 
 /** 04 §13 起始默认基因组（"好看集"，待 M2 调参锁定） */
 export const ECHEVERIA_DEFAULT_GENOME: Record<string, number> = {
+  // 品种色板（M4 任务 8：0 自然绿，>0 分布粉/橙/白/红/黄）
+  palette: 0,
   // 叶序
   leafDensity: 0.62,
   rosetteCompact: 0.68,
@@ -51,20 +53,27 @@ export const ECHEVERIA_DEFAULT_GENOME: Record<string, number> = {
  * createWorld genomeBase 传入启用；与写实向并存。
  */
 export const ECHEVERIA_VIVID_GENOME: Record<string, number> = {
+  // 品种色板（绚丽向：分布粉/橙/白/红/黄）
+  palette: 0.55,
+  // 叶序
   leafDensity: 0.78,
   rosetteCompact: 0.82,
   outerOpen: 0.3,
+  phylloJitter: 0.06,
+  // 叶形
   leafLength: 0.4,
   leafWidth: 0.72,
   leafThickness: 0.9,
   curvature: 0.62,
   tipSharpness: 0.25,
   openness: 0.5,
+  // 色彩
   baseHue: 0.4,
   stressHue: 0.35,
   farina: 0.15,
   edgeContrast: 0.7,
   gloss: 0.5,
+  // 习性
   growthRate: 0.55,
   waterTolerance: 0.6,
   stressColorPropensity: 0.8,
@@ -80,6 +89,7 @@ export const ECHEVERIA_VIVID_GENOME: Record<string, number> = {
  * 目标：联系表上"扫一眼能分清株与株"（M1 验收线）。
  */
 const GENE_JITTER: Record<string, number> = {
+  palette: 0.3,
   // 叶序
   leafDensity: 0.30,
   rosetteCompact: 0.22,
