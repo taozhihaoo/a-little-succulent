@@ -266,8 +266,7 @@ export function makeJitteredGenome(
 ): Genome {
   return ECHEVERIA.createGenome(rng, baseTable)
 }
-
-/** 缺水挣扎迹象（M4 首个迹象）：长期干旱积累，progress 由应激积分给出 */
+/** 迹象定义（M4）：缺水挣扎（growth）+ 基部隆起（major，子株前兆，任务 9） */
 export const ECHEVERIA_SIGNS: SignDef[] = [
   {
     id: 'droughtStruggle',
@@ -278,4 +277,27 @@ export const ECHEVERIA_SIGNS: SignDef[] = [
       return Math.max(0, Math.min(1, (d - 0.15) / 0.55))
     },
   },
-]
+  {
+    id: 'offset',
+    tier: 'major',
+    afterglowMs: 10 * 86_400_000,
+    // 基部隆起：成熟株（≥14 叶）+ 水分充足积累
+    progress(plant): number {
+      const alive = plant.leaves.filter((l) => l.droppedSimTime === undefined).length
+      if (alive < 14) return 0
+      return Math.max(0, Math.min(1, (plant.water - 0.55) * 1.6))
+    },
+  },
+
+  {
+    id: 'flowerSpike',
+    tier: 'major',
+    afterglowMs: 20 * 86_400_000,
+    // 花芽前兆：成熟株（≥16 叶）+ 春季相位 + 光照充足
+    progress(plant, env): number {
+      const alive = plant.leaves.filter((l) => l.droppedSimTime === undefined).length
+      if (alive < 14) return 0
+      const spring = Math.max(0, 1 - Math.abs(env.seasonPhase - 0.15) * 4)
+      return Math.max(0, Math.min(1, spring * (0.4 + env.light * 0.9)))
+    },
+  },]

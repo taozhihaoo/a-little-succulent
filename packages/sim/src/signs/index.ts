@@ -78,6 +78,7 @@ export function stepSigns(
   simTime: number,
   allow: (plant: PlantState, tier: EventTier, simTime: number) => boolean,
   emit: EventSink,
+  onOccurred?: (plant: PlantState, sign: SignState, simTime: number) => void,
 ): void {
   plant.signs ??= []
   for (const def of defs) {
@@ -101,6 +102,7 @@ export function stepSigns(
 
     // 已发生：发余韵事件一次，随后倒计时
     if (sign.phase === 'occurred') {
+      onOccurred?.(plant, sign, simTime)
       emitPhase(plant, sign, 'major', simTime, allow, emit)
       sign.occurredSimTime = simTime
       sign.phase = 'afterglow'

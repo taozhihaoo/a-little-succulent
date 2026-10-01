@@ -37,20 +37,14 @@ export interface PhenotypeSnapshot {
   /** 0~1 植株水分（影响材质 roughness / 褶皱，04 §6） */
   water: number
   stretch: number
+  /** 花剑存在（M4 任务 10 迹象发生 → M5 渲染花剑几何） */
+  spike: boolean
   material: SnapshotMaterial
   shape: SnapshotShape
   organs: OrganPose[]
 }
 
 /** HSL → RGB（0~1），纯函数 */
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  const a = s * Math.min(l, 1 - l)
-  const f = (n: number): number => {
-    const k = (n + h * 12) % 12
-    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
-  }
-  return [f(0), f(8), f(4)]
-}
 
 /**
  * 状态 → 表现（M1 实现）。
@@ -96,6 +90,7 @@ export function derivePhenotype(
     dayPhase: sampleEnv(simTime, env).dayPhase,
     water: plant.water,
     stretch: plant.stretch,
+    spike: plant.spike ?? false,
     material: {
       baseColor: pal.base,
       youngColor: mixC(pal.base, [0.93, 0.95, 0.82], 0.45),

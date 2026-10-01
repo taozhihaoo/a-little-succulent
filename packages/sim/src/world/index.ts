@@ -63,6 +63,8 @@ export interface PlantState {
   stems: StemState[]
   counters: Record<string, number>
   signs?: SignState[]
+  /** 花剑迹象（M4 任务 10）/ 开花（M5）：发生时置 true */
+  spike?: boolean
 }
 
 export interface WorldState {

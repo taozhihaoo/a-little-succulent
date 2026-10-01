@@ -92,7 +92,41 @@ export function simulateStep(world: WorldState, dtMs: number, ctx: StepCtx): Ste
     getSpecies(plant.speciesId).growStep(plant, env, dtMs, ctx)
 
     // 5) 迹象生命周期（M4 任务 7）：条件积分 → 相位推进 → 预算化事件
-    stepSigns(plant, ECHEVERIA_SIGNS, env, dtMs, stepEnd, budgetAllow, ctx.emit)
+    stepSigns(
+      plant,
+      ECHEVERIA_SIGNS,
+      env,
+      dtMs,
+      stepEnd,
+      budgetAllow,
+      ctx.emit,
+      // M4 任务 9：子株迹象"发生"→ 生成新 PlantState（基部幼株，同 species 同基因源）
+      (parent, sign, simTime) => {
+        if (sign.id === 'flowerSpike') {
+          parent.spike = true
+          return
+        }
+        if (sign.id !== 'offset') return
+        if (world.plants.length >= 8) return // Slot 上限（总方案 §34：首发少 Slot）
+        const childId = `${parent.id}-offset${world.plants.length}`
+        world.plants.push({
+          id: childId,
+          speciesId: parent.speciesId,
+          seed: `${parent.seed}|offset${world.plants.length}`,
+          genome: parent.genome, // 子株遗传母株基因（M6 杂交前的简化遗传）
+          bornSimTime: simTime,
+          water: parent.water,
+          stress: { light: 0, drought: 0, temp: 0 },
+          stretch: 0,
+          seasonPhase: parent.seasonPhase,
+          leaves: [
+            { bornSimTime: simTime, ringIndex: 0, maturity: 0.05, turgor: 1, colorState: 0, damage: 0, rand: 0.5 },
+          ],
+          stems: [{ heightMm: 2, lignification: 0 }],
+          counters: {},
+        })
+      },
+    )
 
     // 5) 事件检查：确定性阈值跨变（沿）+ 冷却；概率类事件与预算全量实现属 M3/M4
     const low = plant.water < 0.45

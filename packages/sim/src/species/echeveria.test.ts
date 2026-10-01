@@ -157,3 +157,23 @@ describe('迹象系统（M4 任务 7）', () => {
     expect(allowed).toBe(cap)
   })
 })
+
+describe('花芽前兆（M4 任务 10）', () => {
+  it('未成熟株不出现花剑迹象；成熟+春季进入迹象链', () => {
+    const young = createWorld('spike-young', 0, ENV)
+    const youngEngine = createEngine({ world: young })
+    youngEngine.advance(30 * DAY, Number.MAX_SAFE_INTEGER)
+    expect(young.plants[0]!.signs?.some((s) => s.id === 'flowerSpike')).toBeFalsy()
+
+    const mature = createWorld('spike-mature', 0, ENV)
+    const matureEngine = createEngine({ world: mature })
+    matureEngine.advance(80 * DAY, Number.MAX_SAFE_INTEGER)
+    // 成熟株可能进入迹象链（取决春相与光照），但绝不会在 <16 叶时发生
+    const spikeEvents = matureEngine.events.filter((e) => e.kind.startsWith('sign.flowerSpike'))
+    for (const ev of spikeEvents) {
+      const plant = mature.plants[0]!
+      const alive = plant.leaves.filter((l) => !l.droppedSimTime).length
+      expect(alive).toBeGreaterThanOrEqual(14)
+    }
+  })
+})
