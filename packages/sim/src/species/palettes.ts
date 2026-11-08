@@ -11,7 +11,7 @@ export interface VarietyPalette {
 
 export const ECHEVERIA_PALETTES: VarietyPalette[] = [
   // 粉：绿基粉尖（胭脂系）
-  { id: 'pink', label: '胭脂', base: [0.42, 0.62, 0.36], tip: [0.96, 0.72, 0.78] },
+  { id: 'pink', label: '胭脂', base: [0.4, 0.6, 0.34], tip: [0.94, 0.58, 0.63] },
   // 橙红：深绿基橙红尖（红颜系）
   { id: 'orange', label: '红颜', base: [0.30, 0.52, 0.30], tip: [0.94, 0.52, 0.30] },
   // 白粉：灰绿基白粉尖（晚樱系）

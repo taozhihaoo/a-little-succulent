@@ -265,10 +265,11 @@ export const ECHEVERIA: SpeciesDef = {
     const curve = g(plant, 'curvature')
 
     const lengthBase = (14 + 16 * lenGene) * (1 - 0.35 * density) // 耦合：叶密 → 叶短
-    // M1 真机反馈：45 天植株相对盆口（φ90mm）偏小，整体放大 ~35%
-    const sizeScale = 1.5
-    const innerTilt = 0.35 - 0.15 * compact
-    const outerTilt = 0.62 + 0.3 * outerOpen
+    // M1 真机反馈：45 天植株相对盆口偏小，整体放大（花冠宽度 ≈ 2× 盆口）
+    const sizeScale = 1.3
+    // 莲座剪影（docs/08 §1.3）：中心近直立、外圈明显外张，整体收成"碗"而不是摊平或收成花苞
+    const innerTilt = 0.26 - 0.14 * compact
+    const outerTilt = 0.86 + 0.36 * outerOpen
 
     for (let i = 0; i < n; i++) {
       const leaf = alive[i]!
@@ -283,8 +284,8 @@ export const ECHEVERIA: SpeciesDef = {
         (outerTilt - innerTilt) * Math.sqrt(f) +
         (1 - leaf.turgor) * 0.2 +
         (1 - leaf.maturity) * 0.15
-      const length = lengthBase * (0.55 + 0.45 * Math.sqrt(f)) * (0.25 + 0.75 * leaf.maturity) * sizeScale
-      const width = length * (0.36 + 0.24 * wGene) * (1 + 0.15 * tGene) * (1 - 0.3 * plant.stretch) // 徒长：叶变稀 // 耦合：厚 → 宽
+      const length = lengthBase * (0.7 + 0.3 * Math.sqrt(f)) * (0.25 + 0.75 * leaf.maturity) * sizeScale
+      const width = length * (0.5 + 0.26 * wGene) * (1 + 0.15 * tGene) * (1 - 0.3 * plant.stretch) // 徒长：叶变稀 // 耦合：厚 → 宽
       poses.push({
         ring: Math.round(f * 5),
         tilt,

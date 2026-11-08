@@ -78,7 +78,7 @@ export function derivePhenotype(
   }
   const stressAmount = weightSum > 0 ? Math.min(1, weighted / weightSum) : 0
   // 基因红边晕：绚丽的底色，不依赖应激（真实拟石莲的粉边是天生）
-  const blush = g('edgeContrast') * 0.3
+  const blush = g('edgeContrast') * 0.75
   const stressWithBlush = Math.min(1, stressAmount + blush)
     // 旧存档无 palette 基因：默认 0 = 自然绿（g() 的 0.5 缺省会命中白色板）
     const pal = paletteFor(plant.genome.values['palette'] ?? 0)
@@ -106,8 +106,8 @@ export function derivePhenotype(
     material: {
       baseColor: pal.base,
       // 内浅外深色阶幅度随 edgeContrast 增幅（实拍对照 docs/08 §5：绚丽向内圈奶黄/外圈深色落差明显）
-      youngColor: mixC(pal.base, [0.95, 0.95, 0.8], 0.3 + 0.35 * (plant.genome.values['edgeContrast'] ?? 0.55)),
-      matureColor: mixC(pal.base, [0.12, 0.16, 0.12], 0.3 + 0.35 * (plant.genome.values['edgeContrast'] ?? 0.55)),
+      youngColor: mixC(pal.base, [0.95, 0.95, 0.8], 0.26 + 0.32 * (plant.genome.values['edgeContrast'] ?? 0.55)),
+      matureColor: mixC(pal.base, [0.14, 0.2, 0.14], 0.24 + 0.32 * (plant.genome.values['edgeContrast'] ?? 0.55)),
       stressColor: pal.tip,
       farina: g('farina'),
       gloss: g('gloss'),

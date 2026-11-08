@@ -32,6 +32,13 @@ SpeciesDef { createGenome / growStep / morphology(): OrganPose[] }
 PointerHitResolver: 屏幕坐标 → Ignore | Hover | Interact | Drag | Menu
 ```
 
+```ts
+// render 包（不 import electron / main；`typeof document` 兜底，Node 端测试可跑）
+createSceneRoot(container)                              // 相机/光照/环境；改尺寸后立即补一帧
+new PlantRenderer(parent, withDew, sched, plantId)      // plantId 决定盆型与铺面石分布
+buildLeafGeometry({ tipSharpness, openness, curvature }) // 纯函数：单位叶**封闭实体**
+```
+
 ## 纪律
 
 * 画的时机只归 RenderScheduler（三态：Deep Idle / Ambient 按需短动画 / Active）；其他模块禁止私自 requestAnimationFrame

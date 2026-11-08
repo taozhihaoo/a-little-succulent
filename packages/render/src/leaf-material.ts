@@ -87,8 +87,12 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
         [
           '#include <color_fragment>',
           // 实拍对照修正（docs/08 §5）：渐变带更宽（pow 2.2→1.6，从中段起淹没）、缘/肋权重差收窄、上限放宽
-          'float stressMask = uStressAmount * pow(vT, 1.6) * (0.35 + 0.65 * vC);',
-          'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.7));',
+          // 叶基 AO：莲座心里被邻叶遮住的基部压暗。没有这层，相邻叶片会糊成一片绿，
+          // 层叠关系只能靠轮廓线读出来（放大后像折纸）
+          'float baseAO = mix(0.62, 1.0, smoothstep(0.0, 0.5, vT));',
+          'diffuseColor.rgb *= baseAO;',
+          'float stressMask = uStressAmount * pow(vT, 1.5) * (0.3 + 0.7 * vC);',
+          'diffuseColor.rgb = mix(diffuseColor.rgb, uStressColor, clamp(stressMask, 0.0, 0.8));',
           // 锦化（M6-2）：沿叶长的奶油条纹 + 株内相位错开（真实锦斑的不规则分带）
           'if (uVariegata > 0.001) {',
           '  float band = 0.5 + 0.5 * sin(vT * 16.0 + vC * 4.0);',
@@ -108,13 +112,15 @@ export function applyLeafShader(material: THREE.MeshPhysicalMaterial): LeafMater
           'float faceKey = pow(clamp(dot(vNrm, keyDirN), 0.0, 1.0), 6.0);',
           'float glint = step(0.9, glintCell) * twinkle * faceKey * uSparkle;',
           'gl_FragColor.rgb += glint * 0.22 * vec3(1.0, 0.98, 0.92);',
-          'float fres = pow(1.0 - clamp(abs(dot(vNrm, normalize(vViewPosition))), 0.0, 1.0), 2.5);',
-          'gl_FragColor.rgb += uLightTint * fres * 0.4;',
-          'float backlight = pow(clamp(dot(normalize(vViewPosition), -uKeyDir), 0.0, 1.0), 3.0);',
+          'float fres = pow(1.0 - clamp(abs(dot(vNrm, normalize(vViewPosition))), 0.0, 1.0), 3.2);',
+          'gl_FragColor.rgb += uLightTint * fres * 0.22;',
+          'float backlight = pow(clamp(dot(normalize(vViewPosition), -uKeyDir), 0.0, 1.0), 3.5);',
           'float thickness = mix(1.0, 0.25, vT);',
           'float breathe = 0.78 + 0.22 * sin(uTime * 0.0015708);',
-          'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * breathe * 2.6;',
-          'gl_FragColor.rgb += transmitted * (0.5 + 0.5 * vC);',
+          // 只让叶缘薄处透光（叶心厚，透不出来）：vC 高 = 靠近叶缘
+          'float thinEdge = 0.25 + 0.75 * pow(vC, 1.5);',
+          'vec3 transmitted = uKeyColor * diffuseColor.rgb * backlight * thickness * uTranslucency * breathe * 1.5 * thinEdge;',
+          'gl_FragColor.rgb += transmitted * 0.75;',
           '#include <dithering_fragment>',
         ].join('\n'),
       )

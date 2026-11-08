@@ -1,15 +1,19 @@
 /**
  * PlantRenderer（07 §4）：消费 PhenotypeSnapshot 更新莲座、茎、盆。
  * 规则：只读快照，永不反推植物状态；器官数量变化时重建，否则只更新变换。
- * M2：三档叶色变体（嫩/基/深）+ 露珠微事件。
+ *
+ * 结构：
+ *  - pot.ts      花盆 / 土面 / 铺面石 / 茎 / 接触阴影
+ *  - leaf.ts     单叶封闭实体几何（共享一份，按形状键重建）
+ *  - leaf-material 叶片 shader（伪 SSS / 应激色 / 锦化 / 闪粉）
+ * 本文件只负责"把姿态贴到网格上"以及花剑、浇水、露珠等短时特效。
  */
 import * as THREE from 'three'
 import type { PhenotypeSnapshot } from '@succulent/sim'
 import { buildLeafGeometry } from './leaf'
 import { applyLeafShader, type LeafMaterialUniforms } from './leaf-material'
 import { DewLayer } from './dew'
-
-const SOIL_Y = 4
+import { createPot, SOIL_TOP_Y, type PotHandles } from './pot'
 
 interface LeafVariant {
   material: THREE.MeshPhysicalMaterial
@@ -17,31 +21,43 @@ interface LeafVariant {
   stressMul: number
 }
 
+interface SpikeRig {
+  group: THREE.Group
+  stalkMaterial: THREE.MeshStandardMaterial
+  budMaterial: THREE.MeshStandardMaterial
+  buds: THREE.Mesh[]
+}
+
+/** 整数 → [0,1) 的稳定哈希（叶片扭角/尺寸抖动用，不要 Math.random：重载后应一致） */
+function hash01(n: number): number {
+  const x = Math.sin(n * 12.9898) * 43758.5453
+  return x - Math.floor(x)
+}
+
 export class PlantRenderer {
   readonly group = new THREE.Group()
   readonly dew: DewLayer | undefined
-  private glowDrift?: (timeMs: number) => void
   private readonly leafGroup = new THREE.Group()
-  private soilMaterial: THREE.MeshStandardMaterial | undefined
-  private granuleMaterial: THREE.MeshStandardMaterial | undefined
-  private readonly waterDrops: { mesh: THREE.Mesh; born: number; y0: number; x: number; z: number }[] = []
-  private waterFxUntil = 0
-  private stemMesh!: THREE.Mesh
-  private stemMat!: THREE.MeshStandardMaterial
-  private readonly meshes: THREE.Mesh[] = []
   private readonly variants: LeafVariant[]
+  private readonly meshes: THREE.Mesh[] = []
+  private readonly pot: PotHandles
   private leafGeometry: THREE.BufferGeometry | undefined
   private geometryKey = ''
   private lastOrganCount = -1
-  private spikeGroup: THREE.Group | undefined
-  private spikeBuds: THREE.Mesh[] = []
-  private spikeBudMat: THREE.MeshStandardMaterial | undefined
+  private spike: SpikeRig | undefined
+  private waterGeometry: THREE.SphereGeometry | undefined
+  private waterMaterial: THREE.MeshPhysicalMaterial | undefined
+  private readonly waterDrops: { mesh: THREE.Mesh; born: number; y0: number; x: number; z: number }[] = []
+  private readonly sched: { requestFrames(durationMs: number): void } | undefined
 
   constructor(
     parent: THREE.Object3D,
     withDew = true,
     sched?: { requestFrames(durationMs: number): void },
+    /** 植株 id：决定盆型与铺面石分布（同一株重载后外观一致） */
+    id = 'plant',
   ) {
+    this.sched = sched
     const base = new THREE.MeshPhysicalMaterial({
       color: 0x7da87b,
       roughness: 0.62,
@@ -51,190 +67,76 @@ export class PlantRenderer {
       clearcoat: 0.36,
       clearcoatRoughness: 0.55,
     })
-    const young = base.clone()
-    const mature = base.clone()
-    this.variants = [
-      { material: young, u: applyLeafShader(young), stressMul: 0.55 },
-      { material: base, u: applyLeafShader(base), stressMul: 1 },
-      { material: mature, u: applyLeafShader(mature), stressMul: 1.25 },
-    ]
-    this.material = base
-    this.leafUniforms = this.variants[1]!.u
+    // 嫩 / 基 / 深三档叶色：内圈浅、外圈深（04 §7 的辐射分布）
+    this.variants = [0.55, 1, 1.25].map((stressMul, i) => {
+      const material = i === 1 ? base : base.clone()
+      return { material, u: applyLeafShader(material), stressMul }
+    })
+
+    this.pot = createPot(id, typeof document !== 'undefined')
+    this.group.add(this.pot.group)
+
     if (withDew) {
       this.dew = new DewLayer(this.group, sched ? (d) => sched.requestFrames(d) : undefined)
-      this.buildAmbience()
     }
     parent.add(this.group)
     this.group.add(this.leafGroup)
-    this.buildPot()
   }
-
-  private readonly material: THREE.MeshPhysicalMaterial
-  private readonly leafUniforms: LeafMaterialUniforms
 
   /** 释放本实例的全部 GPU 资源（联系表等批量场景使用） */
   dispose(): void {
     this.group.removeFromParent()
-    this.group.traverse((o) => {
-      const mesh = o as THREE.Mesh
-      if (mesh.isMesh) mesh.geometry.dispose()
-    })
-    for (const v of this.variants) v.material.dispose()
     this.dew?.dispose()
-    this.spikeGroup?.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) m.geometry.dispose() })
+    for (const v of this.variants) v.material.dispose()
     this.leafGeometry?.dispose()
+    this.waterGeometry?.dispose()
+    this.waterMaterial?.dispose()
+    this.disposeSpike()
+    this.pot.dispose()
   }
 
-  private buildAmbience(): void {
-    if (typeof document === 'undefined') return
-    const canvas = document.createElement('canvas')
-    canvas.width = 128
-    canvas.height = 128
-    const ctx = canvas.getContext('2d')!
-    const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 62)
-    grad.addColorStop(0, 'rgba(255,255,255,0.9)')
-    grad.addColorStop(1, 'rgba(255,255,255,0)')
-    ctx.fillStyle = grad
-    ctx.fillRect(0, 0, 128, 128)
-    const tex = new THREE.CanvasTexture(canvas)
-    const sprites: THREE.Sprite[] = []
-    const bases: number[] = []
-    for (let i = 0; i < 3; i++) {
-      const sprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({
-          map: tex,
-          color: 0xdfffe9,
-          transparent: true,
-          opacity: 0.09,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }),
-      )
-      sprite.scale.set(44 - i * 7, 30 - i * 5, 1)
-      sprite.position.set((i - 1) * 6, SOIL_Y + 13 + i * 2, -1 + i * 2)
-      sprites.push(sprite)
-      bases.push(sprite.position.y)
-      this.group.add(sprite)
-    }
-    this.glowDrift = (timeMs: number) => {
-      sprites.forEach((sp, i) => {
-        sp.position.y = bases[i]! + Math.sin(timeMs / 2600 + i * 2.1) * 3
-        const material = sp.material as THREE.SpriteMaterial
-        material.opacity = (0.055 + 0.035 * (0.5 + 0.5 * Math.sin(timeMs / 2600 + i * 1.7))) * (0.85 + 0.15 * Math.sin(timeMs * 0.0015708))
-      })
-    }
-  }
   /** 浇水视觉：数颗水滴从上方落下（约 0.6s） */
   waterBurst(nowMs: number): void {
     if (this.waterDrops.length > 0) return
-    const geo = new THREE.SphereGeometry(0.9, 8, 8)
-    const mat = new THREE.MeshPhysicalMaterial({
-      color: 0xa8d8f0,
-      roughness: 0.05,
-      transparent: true,
-      opacity: 0.55,
-      clearcoat: 1,
-    })
-    for (let i = 0; i < 5; i++) {
-      const mesh = new THREE.Mesh(geo, mat)
-      const x = (Math.random() - 0.5) * 24
-      const z = (Math.random() - 0.5) * 24
-      mesh.position.set(x, SOIL_Y + 38, z)
-      mesh.scale.set(1, 1.4, 1)
-      this.group.add(mesh)
-      this.waterDrops.push({ mesh, born: nowMs + i * 90, y0: SOIL_Y + 38, x, z })
+    if (!this.waterGeometry) {
+      this.waterGeometry = new THREE.SphereGeometry(0.95, 10, 8)
+      this.waterMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xa8d8f0,
+        roughness: 0.05,
+        transparent: true,
+        opacity: 0.5,
+        clearcoat: 1,
+      })
     }
-    this.waterFxUntil = nowMs + 1600
+    const y0 = SOIL_TOP_Y + 42
+    for (let i = 0; i < 5; i++) {
+      const mesh = new THREE.Mesh(this.waterGeometry, this.waterMaterial)
+      const x = (Math.random() - 0.5) * 22
+      const z = (Math.random() - 0.5) * 22
+      mesh.position.set(x, y0, z)
+      mesh.scale.set(1, 1.35, 1)
+      this.group.add(mesh)
+      this.waterDrops.push({ mesh, born: nowMs + i * 90, y0, x, z })
+    }
+    // 水滴落完前必须有帧：Ambient 态平时是停帧的
+    this.sched?.requestFrames(1800)
   }
 
   updateEffects(timeMs: number): void {
     this.dew?.update(timeMs, this.meshes)
+    const ground = SOIL_TOP_Y + 1.5
     for (let i = this.waterDrops.length - 1; i >= 0; i--) {
       const d = this.waterDrops[i]
       if (!d) continue
       const age = timeMs - d.born
       if (age < 0) continue
-      const t = Math.min(1, age / 550)
-      d.mesh.position.set(d.x, d.y0 + ((SOIL_Y + 3) - d.y0) * t * t, d.z)
+      const t = Math.min(1, age / 560)
+      d.mesh.position.set(d.x, d.y0 + (ground - d.y0) * t * t, d.z)
       if (t >= 1) {
         this.group.remove(d.mesh)
         this.waterDrops.splice(i, 1)
       }
     }
-    this.glowDrift?.(timeMs)
-  }
-
-  /** 花盆（lathe 轮廓）+ 土面 + 矮桩（04 §4.3） */
-  private buildPot(): void {
-    const terracotta = new THREE.MeshStandardMaterial({ color: 0xb5654a, roughness: 0.9 })
-    const profile = [
-      new THREE.Vector2(0.1, -46),
-      new THREE.Vector2(14.4, -44),
-      new THREE.Vector2(19.4, -36),
-      new THREE.Vector2(22.3, -14),
-      new THREE.Vector2(23.4, 0),
-      new THREE.Vector2(24.8, 3),
-      new THREE.Vector2(23.8, 5),
-      new THREE.Vector2(21.6, 3),
-      new THREE.Vector2(20.5, -2),
-    ]
-    const pot = new THREE.Mesh(new THREE.LatheGeometry(profile, 48), terracotta)
-    pot.position.y = SOIL_Y
-    pot.receiveShadow = true
-    this.group.add(pot)
-
-    const soil = new THREE.Mesh(
-      new THREE.CylinderGeometry(20, 18, 5, 40),
-      new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 }),
-    )
-    soil.position.y = SOIL_Y + 1
-    soil.receiveShadow = true
-    this.soilMaterial = soil.material as THREE.MeshStandardMaterial
-    this.group.add(soil)
-
-    // 颗粒铺面（真实配土）：麦饭石 ~60% / 赤玉土 ~20% / 火山岩 ~12% / 珍珠岩 ~8%
-    const GRANULE_COLORS = [0x9a8f85, 0x9a8f85, 0x9a8f85, 0xb0684a, 0xb0684a, 0x4a3f3c, 0xe8e2d4]
-    const granules = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(1, 0),
-      new THREE.MeshStandardMaterial({ roughness: 0.95 }),
-      220,
-    )
-    const gd = new THREE.Object3D()
-    const gc = new THREE.Color()
-    for (let i = 0; i < 220; i++) {
-      const ang = Math.random() * Math.PI * 2
-      const rad = 4 + Math.sqrt(Math.random()) * 15
-      gd.position.set(Math.cos(ang) * rad, SOIL_Y + 3.1 + Math.random() * 0.8, Math.sin(ang) * rad)
-      gd.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3)
-      gd.scale.set(1.1 + Math.random() * 1.5, 0.8 + Math.random() * 0.9, 1.1 + Math.random() * 1.5)
-      gd.updateMatrix()
-      granules.setMatrixAt(i, gd.matrix)
-      const hex = GRANULE_COLORS[Math.floor(Math.random() * GRANULE_COLORS.length)]!
-      granules.setColorAt(i, gc.setHex(hex))
-    }
-    granules.instanceMatrix.needsUpdate = true
-    if (granules.instanceColor) granules.instanceColor.needsUpdate = true
-    granules.receiveShadow = true
-    this.granuleMaterial = granules.material as THREE.MeshStandardMaterial
-    this.group.add(granules)
-
-    const stemMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.4, 4.6, 2, 12),
-      new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
-    )
-    stemMesh.position.y = SOIL_Y + 2.5
-    stemMesh.receiveShadow = true
-    this.stemMesh = stemMesh
-    this.stemMat = stemMesh.material as THREE.MeshStandardMaterial
-    this.group.add(stemMesh)
-
-    const stem = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.4, 4.6, 2, 12),
-      new THREE.MeshStandardMaterial({ color: 0x6b7d4f, roughness: 0.95 }),
-    )
-    stem.position.y = SOIL_Y + 2.5
-    stem.receiveShadow = true
-    this.group.add(stem)
   }
 
   update(snapshot: PhenotypeSnapshot): void {
@@ -256,18 +158,25 @@ export class PlantRenderer {
     this.variants.forEach((v, i) => {
       const c = palette[i]!
       const tgt = targets[i]!
-      v.material.color.setRGB(mixTo(c[0]!, tgt[0]), mixTo(c[1]!, tgt[1]), mixTo(c[2]!, tgt[2]))
+      // 色板值是"作者视角的 sRGB"，必须按 sRGB 解释——否则会被当成线性值直接过亮（全株发白）
+      v.material.color.setRGB(
+        mixTo(c[0]!, tgt[0]),
+        mixTo(c[1]!, tgt[1]),
+        mixTo(c[2]!, tgt[2]),
+        THREE.SRGBColorSpace,
+      )
       v.material.roughness = Math.min(
         1,
         0.62 - 0.25 * material.gloss + (1 - snapshot.water) * 0.12 + i * 0.04,
       )
-      v.material.sheen = 0.08 + 0.15 * material.farina
+      v.material.sheen = 0.05 + 0.12 * material.farina
       v.material.clearcoat = 0.2 + 0.4 * material.gloss
       v.material.clearcoatRoughness = 0.5 + 0.2 * (1 - snapshot.water)
       v.u.uStressColor.value.setRGB(
         material.stressColor[0]!,
         material.stressColor[1]!,
         material.stressColor[2]!,
+        THREE.SRGBColorSpace,
       )
       v.u.uStressAmount.value = Math.min(1, material.stressAmount * v.stressMul)
       v.u.uSparkle.value = 0.4 + 0.6 * material.farina
@@ -275,97 +184,144 @@ export class PlantRenderer {
       v.u.uVariegata.value = material.variegata
     })
 
-    // M4-8：花剑渲染（数据由 flowerSpike 迹象置位）——细长弯拱 + 顶端贴生花苞串
-    if (snapshot.spike && !this.spikeGroup) {
-      this.spikeGroup = new THREE.Group()
-      // 拱形花枝：三点贝塞尔 + 管几何（细：半径 0.5）
-      const curve = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0, SOIL_Y + 4, 0),
-        new THREE.Vector3(1.5, SOIL_Y + 20, 0.5),
-        new THREE.Vector3(5.5, SOIL_Y + 32, 1),
-      ])
-      const stalk = new THREE.Mesh(
-        new THREE.TubeGeometry(curve, 16, 0.5, 6),
-        new THREE.MeshStandardMaterial({ color: 0x7d9a5e, roughness: 0.85 }),
-      )
-      stalk.castShadow = true
-      this.spikeGroup.add(stalk)
-      // 花苞：贴生在拱顶下侧，小铃铛形（椭球），渐次排列
-      const budMat = new THREE.MeshStandardMaterial({
-        color: 0xe89aae,
-        roughness: 0.5,
-      })
-      for (let b = 0; b < 6; b++) {
-      this.spikeBuds = []
-        const bud = new THREE.Mesh(new THREE.SphereGeometry(1.3, 8, 8), budMat)
-        const t = 0.82 + (b % 3) * 0.06
-        const p = curve.getPoint(Math.min(1, t))
-        bud.position.copy(p)
-        bud.position.x += (b - 2.5) * 1.1
-        bud.position.y -= (b % 2) * 1.2
-        bud.scale.set(1, 1.35, 1)
-        this.spikeBuds.push(bud)
-        this.spikeGroup.add(bud)
-      }
-      this.group.add(this.spikeGroup)
-    } else if (!snapshot.spike && this.spikeGroup) {
-      this.spikeGroup.removeFromParent()
-      this.spikeGroup = undefined
-    }
-    if (this.granuleMaterial) this.granuleMaterial.color.setScalar(1 - 0.45 * snapshot.water)
-    if (this.soilMaterial) {
-      // 湿度联动土面：湿则深、干则浅（04 §6）
-      this.soilMaterial.color.setRGB(
-        0.34 - 0.26 * snapshot.water,
-        0.27 - 0.21 * snapshot.water,
-        0.20 - 0.16 * snapshot.water,
-      )
-    }
+    this.updateSpike(snapshot)
+
+    // 土面湿度：湿则深、干则浅（04 §6）；铺面石同步压暗
+    const damp = 1 - 0.35 * snapshot.water
+    this.pot.soilMaterial.color.setRGB(0.24 * damp, 0.185 * damp, 0.14 * damp, THREE.SRGBColorSpace)
+    this.pot.granuleMaterial.color.setScalar(1 - 0.4 * snapshot.water)
+
     const key = `${shape.tipSharpness.toFixed(3)}|${shape.openness.toFixed(3)}|${shape.curvature.toFixed(3)}`
     if (this.leafGeometry === undefined || key !== this.geometryKey) {
       this.leafGeometry?.dispose()
       this.leafGeometry = buildLeafGeometry(shape)
       this.geometryKey = key
-    }
-
-    if (snapshot.organs.length !== this.lastOrganCount) {
-      this.rebuildLeaves(snapshot.organs.length)
+      // 形状变了必须让已有叶片换几何：旧几何已 dispose，继续引用会画不出来
+      for (const mesh of this.meshes) mesh.geometry = this.leafGeometry
     }
 
     const n = snapshot.organs.length
-    const stemH = 2 + snapshot.stem.heightMm
-    this.stemMesh.scale.y = stemH / 2
-    this.stemMesh.position.y = SOIL_Y + 1 + stemH / 2
-    this.stemMat.color.setRGB(0.42, 0.49 - 0.16 * snapshot.stem.lignification, 0.31 - 0.06 * snapshot.stem.lignification)
-    const stemTop = SOIL_Y + 2 + snapshot.stem.heightMm * 0.5
+    if (n !== this.lastOrganCount) this.rebuildLeaves(n)
+    // 茎：顶端 = 莲座基座；老桩把莲座整体抬高
+    const stemTop = SOIL_TOP_Y + 1.6 + snapshot.stem.heightMm * 0.55
+    const stemBase = SOIL_TOP_Y - 2
+    const stemH = Math.max(2, stemTop - stemBase + 1.2)
+    this.pot.stem.scale.y = stemH
+    this.pot.stem.position.y = stemBase + stemH / 2
+    const lig = snapshot.stem.lignification
+    this.pot.stemMaterial.color.setRGB(
+      0.4 + 0.08 * lig,
+      0.48 - 0.2 * lig,
+      0.29 - 0.12 * lig,
+      THREE.SRGBColorSpace,
+    )
+
     for (let i = 0; i < n; i++) {
       const pose = snapshot.organs[i]!
       const mesh = this.meshes[i]!
+      const fOrg = n > 1 ? (n - 1 - i) / (n - 1) : 0
+      // 内圈新叶略高：中心不是一块平板
+      const lift = (1 - fOrg) * 1.4
+      const h = hash01(i * 7 + 1)
       mesh.position.set(
         Math.sin(pose.azimuth) * pose.offset,
-        stemTop,
+        stemTop + lift,
         Math.cos(pose.azimuth) * pose.offset,
       )
       mesh.rotation.order = 'YXZ'
-      mesh.rotation.set(pose.tilt, pose.azimuth, 0)
+      // z 分量是叶片自身长轴的"翻卷"，让每片叶子的朝向不完全平面化
+      mesh.rotation.set(pose.tilt, pose.azimuth, (h - 0.5) * 0.26)
       mesh.scale.set(pose.width, pose.length, pose.thickness)
-      const fOrg = n > 1 ? (n - 1 - i) / (n - 1) : 0
       mesh.material = this.variants[fOrg < 0.34 ? 0 : fOrg < 0.67 ? 1 : 2]!.material
     }
   }
 
   private rebuildLeaves(count: number): void {
-    for (const mesh of this.meshes) {
-      this.leafGroup.remove(mesh)
-    }
+    for (const mesh of this.meshes) this.leafGroup.remove(mesh)
     this.meshes.length = 0
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(this.leafGeometry!, this.variants[1]!.material)
       mesh.castShadow = true
-      mesh.receiveShadow = true
+      // 叶片不接收阴影：厚度只有 1mm 级的薄体自投影只会带来一脸阴影 acne
+      // （盆/土仍接收叶片投影，体积感来自那里）
+      mesh.receiveShadow = false
       this.leafGroup.add(mesh)
       this.meshes.push(mesh)
     }
     this.lastOrganCount = count
+  }
+
+  /** 花剑（M4-8 / M5-1）：细长弯拱 + 顶端贴生花苞串；花苞随 spikeBloom 绽放、随凋谢转褐 */
+  private updateSpike(snapshot: PhenotypeSnapshot): void {
+    if (!snapshot.spike) {
+      this.disposeSpike()
+      return
+    }
+    if (!this.spike) this.buildSpike()
+
+    const rig = this.spike!
+    const bloom = snapshot.spikeBloom
+    const withered = snapshot.spikeWithered
+    rig.budMaterial.color.setRGB(
+      0.91 - 0.42 * (withered ? 1 : bloom * 0.35),
+      0.6 - 0.3 * (withered ? 1 : bloom * 0.35),
+      0.68 - 0.3 * (withered ? 1 : bloom * 0.35),
+    )
+    if (withered) rig.stalkMaterial.color.setRGB(0.44, 0.4, 0.27)
+    else rig.stalkMaterial.color.setRGB(0.32, 0.45, 0.24)
+    for (let b = 0; b < rig.buds.length; b++) {
+      const bud = rig.buds[b]!
+      const order = b / Math.max(1, rig.buds.length - 1)
+      // 自下而上依次开放：末端（最靠近拱顶）先开
+      const local = Math.max(0, Math.min(1, (bloom - order * 0.45) / 0.55))
+      const open = withered ? 1 - 0.35 * bloom : local
+      const s = 0.55 + 0.45 * open
+      bud.scale.set(s * (1 + 0.35 * open), s * (1.35 - 0.25 * open), s)
+      bud.visible = !withered || open > 0.01
+    }
+  }
+
+  private buildSpike(): void {
+    const group = new THREE.Group()
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, SOIL_TOP_Y + 6, 0),
+      new THREE.Vector3(1.2, SOIL_TOP_Y + 22, 0.6),
+      new THREE.Vector3(5.4, SOIL_TOP_Y + 34, 1.2),
+    ])
+    const stalkMaterial = new THREE.MeshStandardMaterial({ color: 0x52692e, roughness: 0.8 })
+    const stalk = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.45, 8, false), stalkMaterial)
+    stalk.castShadow = true
+    group.add(stalk)
+
+    const budMaterial = new THREE.MeshStandardMaterial({ color: 0xe89aae, roughness: 0.45 })
+    const budGeometry = new THREE.SphereGeometry(1.25, 12, 10)
+    const buds: THREE.Mesh[] = []
+    for (let b = 0; b < 6; b++) {
+      const t = 0.6 + (b / 5) * 0.4
+      const p = curve.getPoint(t)
+      const tangent = curve.getTangent(t).normalize()
+      const side = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize()
+      const bud = new THREE.Mesh(budGeometry, budMaterial)
+      bud.position.copy(p).addScaledVector(side, (b % 2 === 0 ? 1 : -1) * 1.5)
+      bud.position.y -= 0.6
+      bud.castShadow = true
+      buds.push(bud)
+      group.add(bud)
+    }
+    this.group.add(group)
+    this.spike = { group, stalkMaterial, budMaterial, buds }
+  }
+
+  private disposeSpike(): void {
+    if (!this.spike) return
+    const rig = this.spike
+    rig.group.removeFromParent()
+    rig.group.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (mesh.isMesh) mesh.geometry.dispose()
+    })
+    rig.stalkMaterial.dispose()
+    rig.budMaterial.dispose()
+    this.spike = undefined
   }
 }

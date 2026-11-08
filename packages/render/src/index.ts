@@ -26,7 +26,7 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   renderer.setClearColor(0x000000, 0)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.toneMapping = THREE.ACESFilmicToneMapping // M2：脱离塑料感的第一杠杆
-  renderer.toneMappingExposure = 0.88
+  renderer.toneMappingExposure = 0.94
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.setSize(container.clientWidth, container.clientHeight, false)
@@ -38,28 +38,38 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
   // 程序化环境（无外部资产）：物理材质的真实反射/环境项
   const pmrem = new THREE.PMREMGenerator(renderer)
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environmentIntensity = 0.28
+  scene.environmentIntensity = 0.24
   pmrem.dispose()
   // far 6000：联系表相机在 ~2400mm 外俯拍 10×10 网格（远平面 2000 会整体裁剪，2026-10-01）
   const camera = new THREE.PerspectiveCamera(40, 1, 1, 6000)
-  camera.position.set(0, 70, 175)
-  camera.lookAt(0, 22, 0)
+  // 取景：盆底 y=-38 → 花冠顶端 y≈+45，留 15% 余量；略微俯视看清土面与莲座中心
+  camera.position.set(0, 38, 146)
+  camera.lookAt(0, 10, 0)
 
   const key = new THREE.DirectionalLight(0xfff4e6, 1.6) // 光比拉开：朝向可读
   key.castShadow = true
-  key.shadow.mapSize.set(1024, 1024)
-  key.shadow.camera.left = -90
-  key.shadow.camera.right = 90
-  key.shadow.camera.top = 90
-  key.shadow.camera.bottom = -90
-  key.shadow.camera.near = 50
-  key.shadow.camera.far = 500 // M2：2.4→1.5（过曝是发白元凶）
+  // 阴影只服务这一盆植物：视锥收紧到 ±70mm（1024 图 = 7px/mm，叶片投影在盆上不再是糊块）
+  key.shadow.mapSize.set(2048, 2048)
+  key.shadow.camera.left = -70
+  key.shadow.camera.right = 70
+  key.shadow.camera.top = 70
+  key.shadow.camera.bottom = -70
+  key.shadow.camera.near = 60
+  key.shadow.camera.far = 460
+  key.shadow.bias = -0.0008
+  key.shadow.normalBias = 0.6
+  // 半透明阴影：全黑投影打在陶盆上会读成脏斑，0.6 保留体积感又不抢戏
+  key.shadow.intensity = 0.6
   key.position.set(120, 180, 150)
   scene.add(key)
-  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.5)
-  fill.position.set(-100, 60, -80)
+  // 补光放到镜头这一侧：朝向观察者的叶面不至于只剩环境光（正午光从右后上方来）
+  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.34)
+  fill.position.set(-95, 55, 130)
   scene.add(fill)
-  const ambient = new THREE.AmbientLight(0xffffff, 0.18)
+  // 半球光模拟"天光 + 桌面反弹"，让背光面有层次而不是死黑
+  const sky = new THREE.HemisphereLight(0xdceaf5, 0x7a5a44, 0.2)
+  scene.add(sky)
+  const ambient = new THREE.AmbientLight(0xffffff, 0.14)
   scene.add(ambient)
 
   const onResize = () => {
@@ -69,6 +79,8 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
     renderer.setSize(w, h, false)
     camera.aspect = w / h
     camera.updateProjectionMatrix()
+    // 改尺寸会清空画布；必须立刻补一帧，否则要等下一次 Ambient burst（最长 10s）才重新出现
+    renderer.render(scene, camera)
   }
   const observer = new ResizeObserver(onResize)
   observer.observe(container)
@@ -88,10 +100,11 @@ export function createSceneRoot(container: HTMLElement): SceneRoot {
       0.55 * wNight + 0.5 * wDusk + 0.97 * wDay,
       1.0 * wNight + 0.28 * wDusk + 0.9 * wDay,
     )
-    key.intensity = 0.35 + 1.25 * dl
-    fill.intensity = 0.12 + 0.38 * dl
-    ambient.intensity = 0.06 + 0.12 * dl
-    scene.environmentIntensity = 0.08 + 0.2 * dl
+    key.intensity = 0.24 + 1.02 * dl
+    fill.intensity = 0.1 + 0.28 * dl
+    ambient.intensity = 0.05 + 0.1 * dl
+    sky.intensity = 0.07 + 0.15 * dl
+    scene.environmentIntensity = 0.06 + 0.16 * dl
     const night = 1 - Math.min(1, dl * 1.6)
     fill.color.setRGB(0.83 - 0.17 * night, 0.91 - 0.19 * night, 1)
     ambient.color.setRGB(0.75 - 0.13 * night, 0.82 - 0.17 * night, 1)
