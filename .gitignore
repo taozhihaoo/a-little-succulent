@@ -20,3 +20,9 @@ apps/desktop/distA
 apps/desktop/distB
 apps/desktop/dist-pkg
 apps/desktop/release
+
+# 本地 agent 工作记忆（不是发布内容）
+.workbuddy/
+
+# README 用的界面截图要入库，显式豁免上面的截图规则
+!docs/images/*.png
