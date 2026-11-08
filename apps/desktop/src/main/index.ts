@@ -54,7 +54,9 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 // A11：单实例锁——二次启动聚焦已有窗口（开机自启动随设置 UI 落地，默认关：总方案 §52 最少权限）
-if (!app.requestSingleInstanceLock()) {
+const singleInstance = app.requestSingleInstanceLock()
+if (!singleInstance) {
+  // quit() 是异步的，模块仍会往下执行；用标记把后续的窗口/托盘/协议注册全部跳过
   app.quit()
 }
 
@@ -197,13 +199,21 @@ ipcMain.handle(IpcChannels.SettingsSet, (_event, patch: unknown) => {
 })
 
 void app.whenReady().then(() => {
+  if (!singleInstance) return
   // app:// → out/renderer/ 静态文件
   const rendererDir = path.join(dirname, '../renderer')
   protocol.handle('app', (request) => {
     const u = new URL(request.url)
-    let rel = decodeURIComponent(u.pathname)
-    if (rel === '/' || rel === '') rel = '/index.html'
-    return net.fetch(pathToFileURL(path.join(rendererDir, rel)).toString())
+    const rel = decodeURIComponent(u.pathname)
+    if (rel === '/' || rel === '') {
+      return net.fetch(pathToFileURL(path.join(rendererDir, 'index.html')).toString())
+    }
+    // 归一化后必须仍落在 renderer 目录内（挡掉 app://renderer/../../secrets 之类的穿越）
+    const resolved = path.resolve(rendererDir, `.${rel.startsWith('/') ? rel : `/${rel}`}`)
+    if (resolved !== rendererDir && !resolved.startsWith(rendererDir + path.sep)) {
+      return new Response('forbidden', { status: 403 })
+    }
+    return net.fetch(pathToFileURL(resolved).toString())
   })
 
   const saveDir = initPersistence()
@@ -224,12 +234,16 @@ void app.whenReady().then(() => {
   createTray()
   initAutoUpdater(() => win)
 
-  // DEV 自检：SUCCULENT_SHOT=plain|journal|settings|photo —— 启动数秒后 capturePage 截图并退出。
-  // 截图只写系统临时目录（隐私红线：永不入库）；journal/settings/photo 会先派发对应按键再截。
+  // DEV 自检：SUCCULENT_SHOT=plain|journal|settings|photo|sheet|vivid|dawn|noon|dusk|night
+  // —— 启动数秒后 capturePage 截图并退出。截图只写系统临时目录（隐私红线：永不入库）；
+  // journal/settings/photo 会先派发对应按键再截，dawn/noon/dusk/night 先锁昼相。
   const shotMode = process.env['SUCCULENT_SHOT']
+  // 出图尺寸（DEV 素材用）：SUCCULENT_SHOT_SIZE=760x920 —— 大视口截图再缩放到 README 宽度
+  const shotSize = /^(\d{3,4})x(\d{3,4})$/.exec(process.env['SUCCULENT_SHOT_SIZE'] ?? '')
   if (shotMode) {
     setTimeout(() => {
       if (!win || win.isDestroyed()) return
+      if (shotSize) win.setBounds({ width: Number(shotSize[1]), height: Number(shotSize[2]) })
       if (shotMode === 'sheet') {
         // 联系表批量出图（DEV；Shift+C 挂载联系表）→ 大视口截图。
         // 先按两次 K 锁午后相（K 是 DEV 预览；实时时刻常为夜相，看不出色板）
@@ -246,6 +260,20 @@ void app.whenReady().then(() => {
           "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyV', shiftKey: true }));" +
             "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));" +
             "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));",
+        )
+      }
+      // 单株出图：按 K 的次数锁定昼夜相位（0.31 晨 / 0.5 午 / 0.69 暮 / 0.97 夜）
+      const phaseKeys = { dawn: 1, noon: 2, dusk: 3, night: 4 }[shotMode] ?? 0
+      if (phaseKeys > 0) {
+        void win.webContents.executeJavaScript(
+          "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyK' }));".repeat(phaseKeys),
+        )
+      }
+      // 快进（Shift+G = 浇水 + 7 模拟日）：出图时把植株养到"有在照顾"的成熟形态
+      const jumps = Number.parseInt(process.env['SUCCULENT_SHOT_ADVANCE'] ?? '', 10)
+      if (Number.isFinite(jumps) && jumps > 0) {
+        void win.webContents.executeJavaScript(
+          "window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG', shiftKey: true }));".repeat(jumps),
         )
       }
       const key =

@@ -7,5 +7,10 @@ export default defineConfig({
   // strictPort 关闭：端口被占用（如残留的 dev 进程）时 vite 自动顺延，URL 经
   // ELECTRON_RENDERER_URL 动态传给 main，无需固定
   server: { port: 5173, strictPort: false },
-  build: { outDir: 'out/renderer', emptyOutDir: true },
+  build: {
+    outDir: 'out/renderer',
+    emptyOutDir: true,
+    // three.js 单 chunk ~550KB 是桌面端（本地磁盘加载）的正常量级，不必为此拆包
+    chunkSizeWarningLimit: 900,
+  },
 })

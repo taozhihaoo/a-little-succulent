@@ -27,6 +27,10 @@ export function mountContactSheet(
 ): () => void {
   widget.group.visible = false
   // 旧 preload 包可能没有 setBounds（改动后需重启 dev 才生效）——可选调用降级
+  // 退出时按进入前的实际视口尺寸还原（窗口缩放由设置面板控制，不能写死 380×460）
+  const canvas = root.renderer.domElement
+  const restoreW = canvas.clientWidth || 380
+  const restoreH = canvas.clientHeight || 460
   bridge.setBounds?.(1440, 1000)
 
   // 相机：俯视 10×10 网格；退出时恢复挂件机位（createSceneRoot 的默认值）
@@ -82,9 +86,9 @@ export function mountContactSheet(
     root.scene.remove(grid)
     for (const pr of renderers) pr.dispose()
     widget.group.visible = true
-    cam.position.set(0, 70, 175)
-    cam.lookAt(0, 22, 0)
-    bridge.setBounds?.(380, 460)
+    cam.position.set(0, 38, 146)
+    cam.lookAt(0, 10, 0)
+    bridge.setBounds?.(restoreW, restoreH)
     root.renderer.render(root.scene, root.camera)
   }
 }

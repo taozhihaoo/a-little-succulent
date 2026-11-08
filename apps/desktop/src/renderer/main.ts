@@ -32,6 +32,10 @@ const bridge = window.succulent
 const root = createSceneRoot(container)
 const scheduler = new RenderScheduler(root)
 scheduler.start()
+// A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
+// 必须在 sync() 之前就就绪：sync() 会 rescans 网格清单（旧实现把它放在文件末尾，靠
+// "bootSim 是异步的"侥幸躲过 TDZ）
+const hitTest = makeHitTester(root)
 
 // —— 垂直切片（07 §7）+ M3 存档：SimEngine → snapshot → PlantRenderer ——
 const DAY = 86_400_000
@@ -76,7 +80,7 @@ function sync(): void {
   plants.forEach((plant, i) => {
     let entry = plantRenderers.get(plant.id)
     if (!entry) {
-      const renderer = new PlantRenderer(root.scene, i === 0, scheduler)
+      const renderer = new PlantRenderer(root.scene, i === 0, scheduler, plant.id)
       entry = { renderer, slot: i }
       plantRenderers.set(plant.id, entry)
       const scale = i === 0 ? 1 : 0.85 // M5-6：子株微缩，母株为主角
@@ -86,10 +90,11 @@ function sync(): void {
         0,
         i === 0 ? 0 : plantJitter(plant.id),
       )
-      hitTest.rescan()
     }
     entry.renderer.update(eng.latestSnapshot(plant.id))
   })
+  // update() 之后才知道叶片网格是否新建——命中清单要在这之后重扫
+  hitTest.rescan()
 }
 sync()
 
@@ -184,7 +189,19 @@ async function bootSim(): Promise<void> {
       hemisphere: 'north',
     }),
   })
-  engine.advance(Date.now(), Number.MAX_SAFE_INTEGER)
+  // 首次启动的"补算"要按被照顾过的样子来：45 天里每 3 个模拟日浇一次水。
+  // 否则一次 advance 到底会让水分在第 9 天就见底——新玩家第一次打开看到的是一株
+  // 旱了 36 天、只剩几片叶的残株（实测），与"一株养了 45 天的健康多肉"的设定不符。
+  // 间隔取 3 天（而不是 5~6 天）是刻意的：水分全程保持在 0.45 以上，植株不带应激色，
+  // 代价是首屏 Journal 为空——但"开头就缺水"比"开头没故事"更伤。这些浇水是真实
+  // InputEvent，会进事件日志，后续的缺水/落叶/开花都会照常累积。
+  const catchUpTo = Date.now()
+  const CARE_INTERVAL = 3 * DAY
+  for (let t = engine.simTime + CARE_INTERVAL; t < catchUpTo; t += CARE_INTERVAL) {
+    engine.apply({ seq: 0, simTime: t, type: 'water' }, { skipWal: true })
+    engine.advance(t, Number.MAX_SAFE_INTEGER)
+  }
+  engine.advance(catchUpTo, Number.MAX_SAFE_INTEGER)
   console.info('[sim] 全新开始')
   sync()
   applyDayPhase()
@@ -248,6 +265,14 @@ window.addEventListener('keydown', (e) => {
     const alive = plant?.leaves.filter((l) => l.droppedSimTime === undefined).length ?? 0
     const ageDays = Math.round((engine.simTime - (plant?.bornSimTime ?? 0)) / DAY)
     console.info(`[dev] +7d; plant age = ${ageDays}d, alive leaves = ${alive}`)
+  }
+  // dev：Shift+G = 浇水 + 快进 7 天（出图/演示用：复现"有在照顾"的成熟株）
+  if (e.code === 'KeyG' && e.shiftKey) {
+    void waterPlant()
+    engine.advance(engine.simTime + 7 * DAY, Number.MAX_SAFE_INTEGER)
+    sync()
+    scheduler.invalidate()
+    checkpoint()
   }
 })
 
@@ -462,9 +487,6 @@ void bridge.getSettings().then((s) => {
 })
 bridge.onUpdateReady(() => toast('🔄 新版本已就绪，退出挂件时自动安装'))
 
-// A3：PointerHitResolver 渲染侧——命中实体才接收鼠标，空白区穿透（forward 保持事件回流）
-const hitTest = makeHitTester(root)
-
 // A4：拖动生命周期交给主进程做屏幕坐标锚定；renderer 只报事件（rAF 节流 IPC）
 let dragging = false
 let moveQueued = false
@@ -486,7 +508,6 @@ container.addEventListener('pointermove', (e) => {
   const overPanel =
     overRect(e.clientX, e.clientY, journal) || overRect(e.clientX, e.clientY, menu) || overSettings(e.clientX, e.clientY)
   if (dragging) {
-  if (menuOpen) return
     if (moveQueued) return
     moveQueued = true
     requestAnimationFrame(() => {

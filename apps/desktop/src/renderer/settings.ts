@@ -56,10 +56,16 @@ export function mountSettings(deps: SettingsDeps): void {
     ].join('')
   }
 
+  // 合并同一批改动：拖动滑块时 120ms 内的多次 input 只发一次 IPC，
+  // 但不同控件的改动必须一起带上（旧实现只发最后一条，先改的那项被丢掉）
+  let pending: Partial<AppSettings> = {}
   const push = (patch: Partial<AppSettings>): void => {
+    pending = { ...pending, ...patch }
     clearTimeout(applyTimer)
     applyTimer = setTimeout(() => {
-      void deps.bridge.setSettings(patch).then((next) => {
+      const patchToSend = pending
+      pending = {}
+      void deps.bridge.setSettings(patchToSend).then((next) => {
         deps.applyContentScale(next.windowScale)
         deps.applyPassthrough(next.passthroughWhenIdle)
       })
